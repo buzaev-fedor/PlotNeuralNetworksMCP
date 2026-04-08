@@ -209,19 +209,20 @@ def _render_transformer_block(
         a2 = f"{prefix}_add2"
 
         # Invisible entry anchor — skip connections start here, not from prev
+        entry_dist = node_dist + 0.15
         lines.append(
-            rf"\node[inner sep=0, minimum size=0, above={node_dist}cm of {prev}] ({entry}) {{}};" "\n"
+            rf"\node[inner sep=0, minimum size=0, above={entry_dist}cm of {prev}] ({entry}) {{}};" "\n"
         )
         lines.append(flat_arrow(prev, entry))
 
-        lines.append(flat_block(n1, "LayerNorm", "norm", above_of=entry, node_distance=0.15))
+        lines.append(flat_block(n1, "LayerNorm", "norm", above_of=entry, node_distance=0.12))
         lines.append(flat_arrow(entry, n1))
         attn_opacity = 1.0 if block.attention == "global" else 0.65
         attn_height = 1.05 if block.attention == "global" else 0.9
         lines.append(flat_block(at, attn_label, attn_color, above_of=n1, node_distance=node_dist,
                                 width=3.8, height=attn_height, opacity=attn_opacity))
         lines.append(flat_arrow(n1, at))
-        lines.append(flat_dim_label(f"{block.heads}h", at, side="right", distance=0.1))
+        lines.append(flat_dim_label(f"{block.heads}h", at, side="left", distance=0.15))
 
         lines.append(flat_add_circle(a1, above_of=at, node_distance=0.25))
         lines.append(flat_arrow(at, a1))
@@ -231,7 +232,7 @@ def _render_transformer_block(
         lines.append(flat_arrow(a1, n2))
         lines.append(flat_block(ff, ffn_label, "ffn", above_of=n2, node_distance=node_dist))
         lines.append(flat_arrow(n2, ff))
-        lines.append(flat_dim_label(str(block.d_ff), ff, side="right", distance=0.1))
+        lines.append(flat_dim_label(str(block.d_ff), ff, side="left", distance=0.15))
 
         lines.append(flat_add_circle(a2, above_of=ff, node_distance=0.25))
         lines.append(flat_arrow(ff, a2))
@@ -331,7 +332,7 @@ def _render_vertical(
             parts.append(flat_block(
                 nid, label, "embed",
                 position="(0,0)" if prev is None else None,
-                above_of=prev, node_distance=0.5 if prev else 0,
+                above_of=prev, node_distance=0.6 if prev else 0,
             ))
             if prev:
                 parts.append(flat_arrow(prev, nid))
