@@ -101,12 +101,12 @@ def flat_arrow(from_name: str, to_name: str,
     return rf"\draw[arrow] ({from_name}.{from_anchor}) -- ({to_name}.{to_anchor});" "\n"
 
 
-def flat_skip_arrow(from_name: str, to_name: str, xshift: float = 2.5,
+def flat_skip_arrow(from_name: str, to_name: str, xshift: float = 2.3,
                     direction: str = "right") -> str:
     """Residual/skip connection arrow that curves to the side."""
     sign = "" if direction == "right" else "-"
     return (
-        rf"\draw[skiparrow] ({from_name}.east) -- ++({sign}{xshift * 0.25},0) "
+        rf"\draw[skiparrow] ({from_name}.east) -- ++({sign}{xshift * 0.22},0) "
         rf"|- ({to_name}.east);" "\n"
     )
 
@@ -163,6 +163,25 @@ def group_frame(
 # ---------------------------------------------------------------------------
 # Annotations
 # ---------------------------------------------------------------------------
+
+def flat_separator(above_of: str, name: str, width: float = 3.8) -> str:
+    """A thin dashed line between encoder blocks for visual separation."""
+    return (
+        rf"\node[above=0.12cm of {above_of}, inner sep=0, minimum height=0] ({name}) {{}};" "\n"
+        rf"\draw[densely dashed, color=clrgroup_frame!70, line width=0.6pt] "
+        rf"([xshift=-{width/2}cm]{name}.center) -- ([xshift={width/2}cm]{name}.center);" "\n"
+    )
+
+
+def flat_io_arrow(node: str, direction: str = "below", label: str = "") -> str:
+    """Draw an input or output arrow coming into or out of the diagram."""
+    if direction == "below":
+        label_node = rf" node[right, font=\sffamily\scriptsize, text=clrtext] {{{label}}}" if label else ""
+        return rf"\draw[arrow] ({node}.south) ++ (0,-0.5) --{label_node} ({node}.south);" "\n"
+    else:
+        label_node = rf" node[right, font=\sffamily\scriptsize, text=clrtext] {{{label}}}" if label else ""
+        return rf"\draw[arrow] ({node}.north) --{label_node} ++ (0,0.5);" "\n"
+
 
 def flat_title(text: str, below_of: str = "current bounding box.south",
                distance: float = 0.6) -> str:

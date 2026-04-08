@@ -25,6 +25,7 @@ from .flat_renderer import (
     flat_head, flat_colors, flat_begin, flat_end,
     flat_block, flat_arrow, flat_skip_arrow, flat_add_circle,
     group_frame, flat_title, flat_side_label, flat_dim_label,
+    flat_separator, flat_io_arrow,
 )
 
 
@@ -198,7 +199,8 @@ def _render_transformer_block(
     is_pre_ln = block.norm == "pre_ln"
 
     if is_pre_ln:
-        # Pre-LN: Norm → Attn → Add → Norm → FFN → Add
+        # Pre-LN: Entry → Norm → Attn → Add(+skip) → Norm → FFN → Add(+skip)
+        entry = f"{prefix}_in"
         n1 = f"{prefix}_ln1"
         at = f"{prefix}_attn"
         a1 = f"{prefix}_add1"
@@ -206,33 +208,41 @@ def _render_transformer_block(
         ff = f"{prefix}_ffn"
         a2 = f"{prefix}_add2"
 
-        lines.append(flat_block(n1, "LayerNorm", "norm", above_of=prev, node_distance=node_dist))
-        lines.append(flat_arrow(prev, n1))
+        # Invisible entry anchor — skip connections start here, not from prev
+        lines.append(
+            rf"\node[inner sep=0, minimum size=0, above={node_dist}cm of {prev}] ({entry}) {{}};" "\n"
+        )
+        lines.append(flat_arrow(prev, entry))
+
+        lines.append(flat_block(n1, "LayerNorm", "norm", above_of=entry, node_distance=0.15))
+        lines.append(flat_arrow(entry, n1))
         attn_opacity = 1.0 if block.attention == "global" else 0.65
         attn_height = 1.05 if block.attention == "global" else 0.9
         lines.append(flat_block(at, attn_label, attn_color, above_of=n1, node_distance=node_dist,
                                 width=3.8, height=attn_height, opacity=attn_opacity))
         lines.append(flat_arrow(n1, at))
-        lines.append(flat_dim_label(f"{block.heads}h", at, side="right", distance=0.15))
+        lines.append(flat_dim_label(f"{block.heads}h", at, side="right", distance=0.1))
 
         lines.append(flat_add_circle(a1, above_of=at, node_distance=0.25))
         lines.append(flat_arrow(at, a1))
-        lines.append(flat_skip_arrow(prev, a1))
+        lines.append(flat_skip_arrow(entry, a1))  # skip from block entry, not from prev
 
         lines.append(flat_block(n2, "LayerNorm", "norm", above_of=a1, node_distance=node_dist))
         lines.append(flat_arrow(a1, n2))
         lines.append(flat_block(ff, ffn_label, "ffn", above_of=n2, node_distance=node_dist))
         lines.append(flat_arrow(n2, ff))
-        lines.append(flat_dim_label(str(block.d_ff), ff, side="right", distance=0.15))
+        lines.append(flat_dim_label(str(block.d_ff), ff, side="right", distance=0.1))
 
         lines.append(flat_add_circle(a2, above_of=ff, node_distance=0.25))
         lines.append(flat_arrow(ff, a2))
-        lines.append(flat_skip_arrow(a1, a2))
+        lines.append(flat_skip_arrow(a1, a2))  # skip from after first add
 
+        # exclude entry from group frame nodes (it's a spacer near prev layer)
         nodes = [n1, at, a1, n2, ff, a2]
         return lines, a2, nodes
     else:
-        # Post-LN: Attn → Add → Norm → FFN → Add → Norm
+        # Post-LN: Entry → Attn → Add(+skip) → Norm → FFN → Add(+skip) → Norm
+        entry = f"{prefix}_in"
         at = f"{prefix}_attn"
         a1 = f"{prefix}_add1"
         n1 = f"{prefix}_ln1"
@@ -240,11 +250,16 @@ def _render_transformer_block(
         a2 = f"{prefix}_add2"
         n2 = f"{prefix}_ln2"
 
-        lines.append(flat_block(at, attn_label, attn_color, above_of=prev, node_distance=node_dist))
-        lines.append(flat_arrow(prev, at))
+        lines.append(
+            rf"\node[inner sep=0, minimum size=0, above={node_dist}cm of {prev}] ({entry}) {{}};" "\n"
+        )
+        lines.append(flat_arrow(prev, entry))
+
+        lines.append(flat_block(at, attn_label, attn_color, above_of=entry, node_distance=0.15))
+        lines.append(flat_arrow(entry, at))
         lines.append(flat_add_circle(a1, above_of=at, node_distance=0.25))
         lines.append(flat_arrow(at, a1))
-        lines.append(flat_skip_arrow(prev, a1))
+        lines.append(flat_skip_arrow(entry, a1))
         lines.append(flat_block(n1, "LayerNorm", "norm", above_of=a1, node_distance=node_dist))
         lines.append(flat_arrow(a1, n1))
         lines.append(flat_block(ff, ffn_label, "ffn", above_of=n1, node_distance=node_dist))
@@ -327,6 +342,11 @@ def _render_vertical(
                 group_frame_data[grp_id]["nodes"].append(nid)
 
         elif isinstance(layer, TransformerBlock):
+            # Add separator between consecutive transformer blocks
+            if i > 0 and isinstance(layers[i - 1], TransformerBlock) and visible.get(i - 1, False):
+                sep_name = f"sep_{node_idx}"
+                parts.append(flat_separator(prev, sep_name))
+
             prefix = f"tb_{node_idx}"
             block_lines, last_node, block_nodes = _render_transformer_block(
                 layer, prefix, prev, theme,
@@ -399,6 +419,12 @@ def _render_vertical(
 
         node_idx += 1
 
+    # Input/output arrows
+    if layers:
+        parts.append(flat_io_arrow("layer_0", direction="below", label="Input"))
+    if prev:
+        parts.append(flat_io_arrow(prev, direction="above", label=""))
+
     # Draw group frames
     for gid, gdata in group_frame_data.items():
         if gdata["nodes"]:
@@ -406,7 +432,7 @@ def _render_vertical(
                 f"grp_{hash(gid) % 10000}",
                 gdata["nodes"],
                 repeat=gdata["count"],
-                padding=0.25,
+                padding=0.35,
             ))
 
     # Title
