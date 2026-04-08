@@ -177,6 +177,41 @@ def flat_separator(above_of: str, name: str, width: float = 3.8) -> str:
     )
 
 
+def flat_separator_label(name: str, label: str, above_of: str,
+                         width: float = 4.5, style: str = "thick") -> str:
+    """A prominent labeled separator line (e.g. 'Generator' / 'Discriminator')."""
+    line_style = {
+        "line": "color=clrgroup_frame, line width=0.5pt",
+        "thick": "color=clrborder, line width=1.2pt",
+        "double": "color=clrborder, double, line width=0.6pt",
+    }.get(style, "color=clrborder, line width=1.2pt")
+    return (
+        rf"\node[above=0.5cm of {above_of}, inner sep=0, minimum height=0] ({name}) {{}};" "\n"
+        rf"\draw[{line_style}] "
+        rf"([xshift=-{width/2}cm]{name}.center) -- ([xshift={width/2}cm]{name}.center);" "\n"
+        rf"\node[above=2pt of {name}, font=\sffamily\small\bfseries, text=clrborder] "
+        rf"{{{label}}};" "\n"
+    )
+
+
+def flat_section_header(name: str, title: str, above_of: str,
+                        subtitle: str = "") -> str:
+    """A section header with bold title and optional subtitle — no box, just text + thin rule."""
+    lines = (
+        rf"\node[above=0.6cm of {above_of}, inner sep=0, minimum height=0] ({name}_rule) {{}};" "\n"
+        rf"\draw[color=clrgroup_frame!50, line width=0.4pt] "
+        rf"([xshift=-2.2cm]{name}_rule.center) -- ([xshift=2.2cm]{name}_rule.center);" "\n"
+        rf"\node[above=4pt of {name}_rule, font=\sffamily\normalsize\bfseries, text=clrborder] "
+        rf"({name}) {{{title}}};" "\n"
+    )
+    if subtitle:
+        lines += (
+            rf"\node[below=1pt of {name}_rule, font=\sffamily\tiny, text=clrgroup_frame] "
+            rf"{{{subtitle}}};" "\n"
+        )
+    return lines
+
+
 def flat_io_arrow(node: str, direction: str = "below", label: str = "") -> str:
     """Draw an input or output arrow coming into or out of the diagram."""
     if direction == "below":

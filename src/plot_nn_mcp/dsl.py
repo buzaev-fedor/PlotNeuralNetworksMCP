@@ -25,7 +25,7 @@ from .flat_renderer import (
     flat_head, flat_colors, flat_begin, flat_end,
     flat_block, flat_arrow, flat_skip_arrow, flat_add_circle,
     group_frame, flat_title, flat_side_label, flat_dim_label,
-    flat_separator, flat_io_arrow,
+    flat_separator, flat_io_arrow, flat_separator_label, flat_section_header,
 )
 
 
@@ -257,6 +257,22 @@ class CustomBlock:
     label: str | None = None
 
 
+# --- Structural / Visual ---
+
+@dataclass
+class Separator:
+    """Prominent labeled divider line between architecture sections."""
+    label: str = ""
+    style: Literal["line", "thick", "double"] = "thick"
+
+
+@dataclass
+class SectionHeader:
+    """Section title (e.g. 'Encoder', 'Decoder') — text + thin rule, no box."""
+    title: str = ""
+    subtitle: str = ""
+
+
 # Union of all layer types
 Layer = (
     Embedding | PositionalEncoding | TransformerBlock | ConvBlock | DenseLayer
@@ -265,7 +281,7 @@ Layer = (
     | Generator | Discriminator | EncoderBlock | DecoderBlock | SamplingLayer
     | UNetBlock | NoiseHead | MambaBlock | SelectiveSSM | MoELayer | Router
     | Expert | GraphConv | MessagePassing | GraphAttention | GraphPooling
-    | CustomBlock
+    | CustomBlock | Separator | SectionHeader
 )
 
 
@@ -308,29 +324,79 @@ class Architecture:
 
 
 # ---------------------------------------------------------------------------
-# Auto-grouping: detect consecutive runs of same-type layers
+# Auto-grouping: detect consecutive runs AND repeating patterns
 # ---------------------------------------------------------------------------
 
 @dataclass
 class _Group:
     start: int
     end: int  # exclusive
-    count: int
-    layer_type: type
+    count: int          # number of repeat units
+    layer_type: type    # single type for simple runs
+    pattern_len: int = 1  # 1 = single-type run, >1 = multi-type pattern
 
 
 def _detect_groups(layers: list[Layer]) -> list[_Group]:
-    """Find consecutive runs of the same layer type for ×N grouping."""
-    groups = []
+    """Find consecutive runs of same-type layers AND repeating multi-type patterns.
+
+    E.g. [A, B, A, B, A, B] → pattern [A, B] × 3 (pattern_len=2, count=3).
+    Structural layers (Separator, SectionHeader) break groups.
+    """
+    structural = (Separator, SectionHeader)
+    groups: list[_Group] = []
+
+    # Phase 1: detect single-type runs
     i = 0
+    covered = set()
     while i < len(layers):
+        if isinstance(layers[i], structural):
+            i += 1
+            continue
         layer_type = type(layers[i])
         j = i + 1
         while j < len(layers) and type(layers[j]) is layer_type:
             j += 1
         if j - i > 1:
             groups.append(_Group(start=i, end=j, count=j - i, layer_type=layer_type))
+            covered.update(range(i, j))
         i = j
+
+    # Phase 2: detect repeating patterns of length 2-4 in uncovered regions
+    i = 0
+    while i < len(layers):
+        if i in covered or isinstance(layers[i], structural):
+            i += 1
+            continue
+        found_pattern = False
+        for pat_len in (2, 3, 4):
+            if i + pat_len > len(layers):
+                break
+            pattern = [type(layers[i + k]) for k in range(pat_len)]
+            if any(issubclass(t, structural) for t in pattern):
+                continue
+            repeats = 1
+            pos = i + pat_len
+            while pos + pat_len <= len(layers):
+                next_pat = [type(layers[pos + k]) for k in range(pat_len)]
+                if next_pat == pattern:
+                    repeats += 1
+                    pos += pat_len
+                else:
+                    break
+            if repeats >= 2:
+                total = repeats * pat_len
+                groups.append(_Group(
+                    start=i, end=i + total, count=repeats,
+                    layer_type=type(layers[i]), pattern_len=pat_len,
+                ))
+                covered.update(range(i, i + total))
+                i = i + total
+                found_pattern = True
+                break
+        if not found_pattern:
+            i += 1
+
+    groups.sort(key=lambda g: g.start)
     return groups
 
 
@@ -395,12 +461,13 @@ def _render_transformer_block(
         )
         lines.append(flat_arrow(prev, entry))
 
-        lines.append(flat_block(n1, "LayerNorm", "norm", above_of=entry, node_distance=0.12))
+        lines.append(flat_block(n1, "LayerNorm", "norm", above_of=entry, node_distance=0.12,
+                                width=3.0, height=0.6))
         lines.append(flat_arrow(entry, n1))
         attn_opacity = 1.0 if block.attention == "global" else 0.65
-        attn_height = 1.05 if block.attention == "global" else 0.9
+        attn_height = 1.1 if block.attention == "global" else 0.95
         lines.append(flat_block(at, attn_label, attn_color, above_of=n1, node_distance=node_dist,
-                                width=3.8, height=attn_height, opacity=attn_opacity))
+                                width=4.2, height=attn_height, opacity=attn_opacity))
         lines.append(flat_arrow(n1, at))
         lines.append(flat_dim_label(f"{block.heads}h", at, side="left", distance=0.15))
 
@@ -408,9 +475,11 @@ def _render_transformer_block(
         lines.append(flat_arrow(at, a1))
         lines.append(flat_skip_arrow(entry, a1))  # skip from block entry, not from prev
 
-        lines.append(flat_block(n2, "LayerNorm", "norm", above_of=a1, node_distance=node_dist))
+        lines.append(flat_block(n2, "LayerNorm", "norm", above_of=a1, node_distance=node_dist,
+                                width=3.0, height=0.6))
         lines.append(flat_arrow(a1, n2))
-        lines.append(flat_block(ff, ffn_label, "ffn", above_of=n2, node_distance=node_dist))
+        lines.append(flat_block(ff, ffn_label, "ffn", above_of=n2, node_distance=node_dist,
+                                width=3.8, height=0.85))
         lines.append(flat_arrow(n2, ff))
         lines.append(flat_dim_label(str(block.d_ff), ff, side="left", distance=0.15))
 
@@ -474,6 +543,7 @@ def _render_vertical(
     group_show_count: dict[int, int] = {}
 
     # Pre-compute which layers to show vs collapse
+    # For pattern groups (pattern_len > 1), show_n counts pattern repetitions, not layers
     visible: dict[int, bool] = {}
     for i in range(len(layers)):
         grp = _find_group(i, groups)
@@ -483,11 +553,16 @@ def _render_vertical(
             grp_id = id(grp)
             if grp_id not in group_show_count:
                 group_show_count[grp_id] = 0
-            if group_show_count[grp_id] < show_n:
+            # Which repetition does this layer belong to?
+            offset_in_group = i - grp.start
+            rep_index = offset_in_group // grp.pattern_len
+            if rep_index < show_n:
                 visible[i] = True
-                group_show_count[grp_id] += 1
             else:
                 visible[i] = False
+            # Count unique repetitions shown
+            if offset_in_group % grp.pattern_len == 0:
+                group_show_count[grp_id] += 1
 
     # Track group frame data
     group_frame_data: dict[int, dict] = {}
@@ -934,6 +1009,23 @@ def _render_vertical(
             if prev:
                 parts.append(flat_arrow(prev, nid))
             prev = nid
+
+        # --- Structural ---
+
+        elif isinstance(layer, Separator):
+            nid = f"sep_label_{node_idx}"
+            if prev:
+                parts.append(flat_separator_label(nid, layer.label, prev,
+                                                   style=layer.style))
+                prev = nid
+            # Separator is not added to groups
+
+        elif isinstance(layer, SectionHeader):
+            nid = f"section_{node_idx}"
+            if prev:
+                parts.append(flat_section_header(nid, layer.title, prev,
+                                                  subtitle=layer.subtitle))
+                prev = nid
 
         node_idx += 1
 

@@ -28,7 +28,7 @@ def save(arch: Architecture, name: str, show_n: int = 3):
 # ═══════════════════════════════════════════════════════════════════════
 # 1. LSTM (Bidirectional NER)
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"Bidirectional LSTM \enspace$\cdot$ NER", theme="modern")
+a = Architecture(r"Bidirectional LSTM -- NER", theme="modern")
 a.add(Embedding(128, label="Word Embedding"))
 a.add(PositionalEncoding("learned", 128, label="Pos. Embedding"))
 a.add(CustomBlock(r"Bi-LSTM Layer 1 ($\rightarrow \leftarrow$)", "attention"))
@@ -43,16 +43,17 @@ save(a, "01_lstm_ner")
 # ═══════════════════════════════════════════════════════════════════════
 # 2. GRU (Machine Translation)
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"GRU Seq2Seq \enspace$\cdot$ Translation", theme="modern")
+a = Architecture(r"GRU Seq2Seq -- Translation", theme="modern")
+a.add(SectionHeader("Encoder"))
 a.add(Embedding(200, label="Source Embedding"))
-a.add(CustomBlock(r"GRU Encoder ($\rightarrow$)", "attention"))
-a.add(CustomBlock(r"GRU Encoder ($\rightarrow$)", "attention"))
+a.add(CustomBlock(r"GRU Encoder L1", "attention"))
+a.add(CustomBlock(r"GRU Encoder L2", "attention"))
+a.add(SectionHeader("Decoder"))
 a.add(CustomBlock("Context Vector", "residual"))
 a.add(Embedding(200, label="Target Embedding"))
-a.add(CustomBlock(r"GRU Decoder ($\rightarrow$)", "attention_alt"))
-a.add(CustomBlock(r"GRU Decoder ($\rightarrow$)", "attention_alt"))
+a.add(CustomBlock(r"GRU Decoder L1", "attention_alt"))
+a.add(CustomBlock(r"GRU Decoder L2", "attention_alt"))
 a.add(DenseLayer(200, label="Linear"))
-a.add(Activation("softmax"))
 a.add(ClassificationHead(label="Output Tokens"))
 save(a, "02_gru_translation")
 
@@ -60,22 +61,24 @@ save(a, "02_gru_translation")
 # 3. Seq2Seq + Bahdanau Attention
 # ═══════════════════════════════════════════════════════════════════════
 a = Architecture(r"Seq2Seq + Bahdanau Attention", theme="modern")
+a.add(SectionHeader("Encoder"))
 a.add(Embedding(256, label="Source Embedding"))
-a.add(CustomBlock(r"Bi-LSTM Encoder ($\rightarrow \leftarrow$)", "attention"))
-a.add(CustomBlock(r"Bi-LSTM Encoder ($\rightarrow \leftarrow$)", "attention"))
+a.add(CustomBlock(r"Bi-LSTM Encoder L1", "attention"))
+a.add(CustomBlock(r"Bi-LSTM Encoder L2", "attention"))
+a.add(SectionHeader("Attention"))
 a.add(CustomBlock("Attention Weights (Bahdanau)", "norm"))
 a.add(CustomBlock("Context Vector", "residual"))
+a.add(SectionHeader("Decoder"))
 a.add(Embedding(256, label="Target Embedding"))
-a.add(CustomBlock(r"LSTM Decoder ($\rightarrow$)", "attention_alt"))
+a.add(CustomBlock(r"LSTM Decoder", "attention_alt"))
 a.add(DenseLayer(256, label="Linear"))
-a.add(Activation("softmax"))
 a.add(ClassificationHead(label="Output Tokens"))
 save(a, "03_seq2seq_attention")
 
 # ═══════════════════════════════════════════════════════════════════════
 # 4. BERT-base
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"BERT-base \enspace$\cdot$ 12L $\cdot$ 768d $\cdot$ 12h", theme="modern")
+a = Architecture(r"BERT-base -- 12L -- 768d -- 12h", theme="modern")
 a.add(Embedding(768, label="Token + Segment Emb"))
 a.add(PositionalEncoding("learned", 768))
 for _ in range(12):
@@ -86,7 +89,7 @@ save(a, "04_bert_base")
 # ═══════════════════════════════════════════════════════════════════════
 # 5. RoBERTa-base
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"RoBERTa-base \enspace$\cdot$ 12L $\cdot$ 768d $\cdot$ Dynamic Masking", theme="paper")
+a = Architecture(r"RoBERTa-base -- Dynamic Masking", theme="paper")
 a.add(Embedding(768, label="BPE Embedding (50k)"))
 a.add(PositionalEncoding("learned", 768))
 for _ in range(12):
@@ -97,7 +100,7 @@ save(a, "05_roberta_base")
 # ═══════════════════════════════════════════════════════════════════════
 # 6. DeBERTa-v3-base
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"DeBERTa-v3-base \enspace$\cdot$ Disentangled Attention", theme="vibrant")
+a = Architecture(r"DeBERTa-v3 -- Disentangled Attention", theme="vibrant")
 a.add(Embedding(768, label="Token Embedding (128k)"))
 a.add(PositionalEncoding("learned", 768, label="Relative Pos. Bias"))
 for _ in range(12):
@@ -110,7 +113,7 @@ save(a, "06_deberta_v3")
 # ═══════════════════════════════════════════════════════════════════════
 # 7. ModernBERT-base
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"ModernBERT-base \enspace$\cdot$ 22L $\cdot$ Pre-LN $\cdot$ GeGLU $\cdot$ RoPE", theme="modern")
+a = Architecture(r"ModernBERT-base -- Pre-LN -- GeGLU -- RoPE", theme="modern")
 a.add(Embedding(768))
 a.add(PositionalEncoding("rope", 768))
 for i in range(22):
@@ -122,20 +125,19 @@ save(a, "07_modernbert")
 # ═══════════════════════════════════════════════════════════════════════
 # 8. GPT-2 (117M)
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"GPT-2 (117M) \enspace$\cdot$ 12L $\cdot$ 768d", theme="modern")
+a = Architecture(r"GPT-2 (117M) -- 12L -- 768d", theme="modern")
 a.add(Embedding(768, label="Token Embedding (50k)"))
 a.add(PositionalEncoding("learned", 768))
 for _ in range(12):
     a.add(TransformerBlock("masked", "pre_ln", "gelu", 3072, 12, 768))
 a.add(DenseLayer(768, label="LM Head"))
-a.add(Activation("softmax"))
 a.add(ClassificationHead(label="Next Token"))
 save(a, "08_gpt2")
 
 # ═══════════════════════════════════════════════════════════════════════
 # 9. LLaMA-2-7B
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"LLaMA-2-7B \enspace$\cdot$ 32L $\cdot$ 4096d $\cdot$ SwiGLU $\cdot$ RoPE", theme="modern")
+a = Architecture(r"LLaMA-2-7B -- 32L -- SwiGLU -- RoPE", theme="modern")
 a.add(Embedding(4096, label="Token Embedding (32k)"))
 a.add(PositionalEncoding("rope", 4096))
 for _ in range(32):
@@ -148,11 +150,12 @@ save(a, "09_llama2_7b", show_n=2)
 # ═══════════════════════════════════════════════════════════════════════
 # 10. Mistral-7B
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"Mistral-7B \enspace$\cdot$ GQA $\cdot$ Sliding Window", theme="vibrant")
+a = Architecture(r"Mistral-7B -- GQA -- Sliding Window 4096", theme="vibrant")
 a.add(Embedding(4096, label="Token Embedding (32k)"))
 a.add(PositionalEncoding("rope", 4096))
 for _ in range(32):
-    a.add(TransformerBlock(attention="gqa", norm="pre_ln", ffn="swiglu", d_ff=14336, heads=32, d_model=4096, kv_heads=8))
+    a.add(TransformerBlock(attention="gqa", norm="pre_ln", ffn="swiglu",
+                           d_ff=14336, heads=32, d_model=4096, kv_heads=8))
 a.add(RMSNorm())
 a.add(DenseLayer(4096, label="LM Head"))
 a.add(ClassificationHead(label="Next Token"))
@@ -161,11 +164,12 @@ save(a, "10_mistral_7b", show_n=2)
 # ═══════════════════════════════════════════════════════════════════════
 # 11. Mixtral-8x7B
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"Mixtral-8x7B \enspace$\cdot$ MoE $\cdot$ GQA", theme="vibrant")
+a = Architecture(r"Mixtral-8x7B -- MoE -- GQA", theme="vibrant")
 a.add(Embedding(4096, label="Token Embedding (32k)"))
 a.add(PositionalEncoding("rope", 4096))
 for _ in range(32):
-    a.add(TransformerBlock(attention="gqa", norm="pre_ln", ffn="swiglu", d_ff=14336, heads=32, d_model=4096, kv_heads=8))
+    a.add(TransformerBlock(attention="gqa", norm="pre_ln", ffn="swiglu",
+                           d_ff=14336, heads=32, d_model=4096, kv_heads=8))
     a.add(MoELayer(num_experts=8, top_k=2, d_ff=14336))
 a.add(RMSNorm())
 a.add(DenseLayer(4096, label="LM Head"))
@@ -176,24 +180,17 @@ save(a, "11_mixtral_8x7b", show_n=2)
 # 12. DCGAN
 # ═══════════════════════════════════════════════════════════════════════
 a = Architecture(r"DCGAN", theme="modern")
+a.add(SectionHeader("Generator"))
 a.add(DenseLayer(100, label="Noise z (100d)"))
-a.add(Generator(512, label="TransConv 4x4 (512)"))
-a.add(BatchNorm())
-a.add(Activation("relu"))
-a.add(Generator(256, label="TransConv 4x4 (256)"))
-a.add(BatchNorm())
-a.add(Activation("relu"))
-a.add(Generator(128, label="TransConv 4x4 (128)"))
-a.add(BatchNorm())
-a.add(Activation("relu"))
+a.add(Generator(512, label="TransConv 4x4 (512) + BN + ReLU"))
+a.add(Generator(256, label="TransConv 4x4 (256) + BN + ReLU"))
+a.add(Generator(128, label="TransConv 4x4 (128) + BN + ReLU"))
 a.add(Generator(3, label="TransConv 4x4 (3) + Tanh"))
 a.add(CustomBlock("Generated Image 64x64", "embed"))
-a.add(Discriminator(64, label="Conv 4x4 (64)"))
-a.add(Activation("leaky_relu"))
-a.add(Discriminator(128, label="Conv 4x4 (128) + BN"))
-a.add(Activation("leaky_relu"))
-a.add(Discriminator(256, label="Conv 4x4 (256) + BN"))
-a.add(Activation("leaky_relu"))
+a.add(Separator("Discriminator"))
+a.add(Discriminator(64, label="Conv 4x4 (64) + LeakyReLU"))
+a.add(Discriminator(128, label="Conv 4x4 (128) + BN + LeakyReLU"))
+a.add(Discriminator(256, label="Conv 4x4 (256) + BN + LeakyReLU"))
 a.add(ClassificationHead(label="Real / Fake"))
 save(a, "12_dcgan")
 
@@ -201,31 +198,34 @@ save(a, "12_dcgan")
 # 13. StyleGAN2
 # ═══════════════════════════════════════════════════════════════════════
 a = Architecture(r"StyleGAN2", theme="paper")
+a.add(SectionHeader("Mapping Network"))
 a.add(DenseLayer(512, label="Latent z (512)"))
-a.add(DenseLayer(512, label="Mapping FC 1"))
-a.add(DenseLayer(512, label="Mapping FC 2"))
-a.add(DenseLayer(512, label="Mapping FC ...8"))
+a.add(DenseLayer(512, label="FC + LeakyReLU x8"))
 a.add(CustomBlock("Style w (512)", "norm"))
-a.add(CustomBlock("Const 4x4 + Style", "embed"))
+a.add(SectionHeader("Synthesis Network"))
+a.add(CustomBlock("Const 4x4 + Style Inject", "embed"))
 a.add(CustomBlock("Synthesis 8x8 + Noise", "attention"))
 a.add(CustomBlock("Synthesis 16x16 + Noise", "attention"))
 a.add(CustomBlock("Synthesis 32x32 + Noise", "attention"))
 a.add(CustomBlock("Synthesis 64x64 + Noise", "attention"))
-a.add(CustomBlock("Synthesis ...1024x1024", "attention_alt"))
+a.add(CustomBlock("... up to 1024x1024", "attention_alt"))
 a.add(ClassificationHead(label="Output Image"))
 save(a, "13_stylegan2")
 
 # ═══════════════════════════════════════════════════════════════════════
 # 14. DDPM (U-Net)
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"DDPM \enspace$\cdot$ U-Net $\cdot$ 1000 steps", theme="modern")
+a = Architecture(r"DDPM -- U-Net -- 1000 steps", theme="modern")
 a.add(CustomBlock("Noisy Image + t", "embed"))
 a.add(CustomBlock("Sinusoidal Time Emb", "residual"))
+a.add(SectionHeader(r"Encoder $\downarrow$"))
 a.add(UNetBlock(64, label="ResBlock 32x32"))
 a.add(UNetBlock(64, label="ResBlock 32x32"))
 a.add(UNetBlock(128, with_attention=False, label="ResBlock 16x16"))
 a.add(UNetBlock(128, with_attention=True, label="ResBlock 16x16 + Attn"))
-a.add(UNetBlock(256, with_attention=False, label="Bottleneck 8x8"))
+a.add(SectionHeader("Bottleneck"))
+a.add(UNetBlock(256, with_attention=True, label="Bottleneck 8x8 + Attn"))
+a.add(SectionHeader(r"Decoder $\uparrow$ + Skip Connections"))
 a.add(UNetBlock(128, with_attention=True, label="ResBlock 16x16 + Attn"))
 a.add(UNetBlock(128, with_attention=False, label="ResBlock 16x16"))
 a.add(UNetBlock(64, label="ResBlock 32x32"))
@@ -236,7 +236,7 @@ save(a, "14_ddpm")
 # ═══════════════════════════════════════════════════════════════════════
 # 15. DiT (Diffusion Transformer)
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"DiT-B/4 \enspace$\cdot$ Diffusion Transformer", theme="vibrant")
+a = Architecture(r"DiT-B/4 -- Diffusion Transformer", theme="vibrant")
 a.add(CustomBlock("Noisy Image", "embed"))
 a.add(ConvBlock(768, kernel_size=4, pool=None, label="Patchify 4x4"))
 a.add(PositionalEncoding("sinusoidal", 768, label="Pos. Embedding"))
@@ -250,16 +250,20 @@ a.add(NoiseHead())
 save(a, "15_dit", show_n=2)
 
 # ═══════════════════════════════════════════════════════════════════════
-# 16. ResNet-50
+# 16. ResNet-50 (4 stages)
 # ═══════════════════════════════════════════════════════════════════════
 a = Architecture(r"ResNet-50", theme="modern")
 a.add(ConvBlock(64, kernel_size=7, pool="max", label="Conv 7x7, stride 2"))
+a.add(SectionHeader("Stage 2 (56x56)"))
 for _ in range(3):
     a.add(BottleneckBlock(64, expansion=4))
+a.add(SectionHeader("Stage 3 (28x28)"))
 for _ in range(4):
     a.add(BottleneckBlock(128, expansion=4))
+a.add(SectionHeader("Stage 4 (14x14)"))
 for _ in range(6):
     a.add(BottleneckBlock(256, expansion=4))
+a.add(SectionHeader("Stage 5 (7x7)"))
 for _ in range(3):
     a.add(BottleneckBlock(512, expansion=4))
 a.add(CustomBlock("Global AvgPool", "norm"))
@@ -269,7 +273,7 @@ save(a, "16_resnet50", show_n=2)
 # ═══════════════════════════════════════════════════════════════════════
 # 17. EfficientNet-B0
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"EfficientNet-B0 \enspace$\cdot$ Compound Scaling", theme="paper")
+a = Architecture(r"EfficientNet-B0 -- Compound Scaling", theme="paper")
 a.add(ConvBlock(32, kernel_size=3, pool=None, label="Stem Conv 3x3"))
 a.add(CustomBlock("MBConv1, k3 (16)", "attention_alt"))
 a.add(CustomBlock("MBConv6, k3 (24) x2", "attention"))
@@ -287,7 +291,7 @@ save(a, "17_efficientnet_b0")
 # ═══════════════════════════════════════════════════════════════════════
 # 18. ViT-B/16
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"ViT-B/16 \enspace$\cdot$ 12L $\cdot$ 768d $\cdot$ 12h", theme="modern")
+a = Architecture(r"ViT-B/16 -- 12L -- 768d -- 12h", theme="modern")
 a.add(ConvBlock(768, kernel_size=16, pool=None, label="Patch Embed 16x16"))
 a.add(CustomBlock("[CLS] Token", "embed"))
 a.add(PositionalEncoding("learned", 768))
@@ -300,50 +304,56 @@ save(a, "18_vit_b16")
 # ═══════════════════════════════════════════════════════════════════════
 # 19. YOLOv8
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"YOLOv8 \enspace$\cdot$ Detection", theme="vibrant")
+a = Architecture(r"YOLOv8 -- Detection", theme="vibrant")
+a.add(SectionHeader("Backbone (CSPDarknet)"))
 a.add(ConvBlock(64, kernel_size=3, pool=None, label="Stem Conv"))
 a.add(CustomBlock("CSPDarknet Stage 1 (128)", "attention"))
 a.add(CustomBlock("CSPDarknet Stage 2 (256)", "attention"))
 a.add(CustomBlock("CSPDarknet Stage 3 (512)", "attention"))
 a.add(CustomBlock("SPPF", "norm"))
-a.add(CustomBlock("PANet Neck (FPN + PAN)", "attention_alt"))
-a.add(CustomBlock("Detect Head P3 (stride 8)", "ffn"))
-a.add(CustomBlock("Detect Head P4 (stride 16)", "ffn"))
-a.add(CustomBlock("Detect Head P5 (stride 32)", "ffn"))
+a.add(SectionHeader("Neck (PANet)"))
+a.add(CustomBlock("FPN + PAN (multi-scale)", "attention_alt"))
+a.add(SectionHeader("Detection Head"))
+a.add(CustomBlock("Detect P3 (stride 8) -- small", "ffn"))
+a.add(CustomBlock("Detect P4 (stride 16) -- medium", "ffn"))
+a.add(CustomBlock("Detect P5 (stride 32) -- large", "ffn"))
 a.add(ClassificationHead(label="BBox + Class"))
 save(a, "19_yolov8")
 
 # ═══════════════════════════════════════════════════════════════════════
 # 20. Standard PINN (Raissi)
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"PINN (Raissi) \enspace$\cdot$ Navier-Stokes", theme="modern")
+a = Architecture(r"PINN (Raissi) -- Navier-Stokes", theme="modern")
+a.add(SectionHeader("Forward Pass"))
 a.add(CustomBlock("Input (x, y, t)", "embed"))
 a.add(DenseLayer(200, label="Dense (200) + tanh"))
 a.add(DenseLayer(200, label="Dense (200) + tanh"))
 a.add(DenseLayer(200, label="Dense (200) + tanh"))
 a.add(DenseLayer(200, label="Dense (200) + tanh"))
 a.add(CustomBlock(r"Output: $u, v, p$", "output"))
-a.add(CustomBlock(r"$\mathcal{L}_{data}$ (MSE)", "residual"))
-a.add(CustomBlock(r"$\mathcal{L}_{PDE}$ (NS residual)", "physics"))
+a.add(SectionHeader("Loss"))
+a.add(CustomBlock(r"$\mathcal{L}_{data}$ = MSE(pred, data)", "residual"))
+a.add(CustomBlock(r"$\mathcal{L}_{PDE}$ = NS residual via autograd", "physics"))
 a.add(CustomBlock(r"$\mathcal{L}_{total} = \mathcal{L}_{data} + \lambda\mathcal{L}_{PDE}$", "ffn"))
 save(a, "20_pinn_raissi")
 
 # ═══════════════════════════════════════════════════════════════════════
 # 21. DeepONet
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"DeepONet \enspace$\cdot$ Operator Learning", theme="paper")
-a.add(CustomBlock("Input Function u(x) at sensors", "embed"))
-a.add(DenseLayer(128, label="Branch FC 1"))
-a.add(Activation("tanh"))
-a.add(DenseLayer(128, label="Branch FC 2"))
-a.add(Activation("tanh"))
+a = Architecture(r"DeepONet -- Operator Learning", theme="paper")
+a.add(SectionHeader("Branch Network"))
+a.add(CustomBlock("Input u(x) at sensors", "embed"))
+a.add(DenseLayer(128, label="FC (128) + tanh"))
+a.add(DenseLayer(128, label="FC (128) + tanh"))
 a.add(DenseLayer(128, label="Branch Output (p)"))
-a.add(CustomBlock(r"$\odot$ (dot product)", "residual"))
-a.add(CustomBlock("Trunk: y coords", "attention_alt"))
-a.add(DenseLayer(128, label="Trunk FC 1 + tanh"))
-a.add(DenseLayer(128, label="Trunk FC 2 + tanh"))
+a.add(SectionHeader("Trunk Network"))
+a.add(CustomBlock("Eval point y", "attention_alt"))
+a.add(DenseLayer(128, label="FC (128) + tanh"))
+a.add(DenseLayer(128, label="FC (128) + tanh"))
 a.add(DenseLayer(128, label="Trunk Output (p)"))
-a.add(CustomBlock(r"$G(u)(y) = \sum b_k \cdot t_k + b_0$", "output"))
+a.add(SectionHeader("Combination"))
+a.add(CustomBlock(r"$\sum b_k \cdot t_k + b_0$", "residual"))
+a.add(ClassificationHead(label=r"$G(u)(y)$"))
 save(a, "21_deeponet")
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -355,7 +365,8 @@ a.add(DenseLayer(100, label="Dense (100) + tanh"))
 a.add(DenseLayer(100, label="Dense (100) + tanh"))
 a.add(DenseLayer(100, label="Dense (100) + tanh"))
 a.add(CustomBlock(r"Raw Output $\hat{u}$", "dense"))
-a.add(CustomBlock(r"Hard BC Projection: $u = g(x) + D(x)\hat{u}$", "physics"))
+a.add(Separator("Hard Constraint Projection"))
+a.add(CustomBlock(r"$u = g(x) + D(x)\hat{u}$", "physics"))
 a.add(CustomBlock(r"$\mathcal{L}_{PDE}$ only (no BC loss)", "ffn"))
 a.add(ClassificationHead(label=r"$u(x,t)$ exact BCs"))
 save(a, "22_pinn_hard")
@@ -363,7 +374,7 @@ save(a, "22_pinn_hard")
 # ═══════════════════════════════════════════════════════════════════════
 # 23. FNO-2D
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"FNO-2D \enspace$\cdot$ Fourier Neural Operator", theme="modern")
+a = Architecture(r"FNO-2D -- Fourier Neural Operator", theme="modern")
 a.add(CustomBlock("Input a(x) on grid", "embed"))
 a.add(CustomBlock("Lifting P (pointwise)", "dense"))
 for _ in range(4):
@@ -375,14 +386,17 @@ save(a, "23_fno_2d")
 # ═══════════════════════════════════════════════════════════════════════
 # 24. U-NO (U-shaped Neural Operator)
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"U-NO \enspace$\cdot$ U-shaped Neural Operator", theme="paper")
+a = Architecture(r"U-NO -- U-shaped Neural Operator", theme="paper")
 a.add(CustomBlock("Input a(x) on grid", "embed"))
 a.add(CustomBlock("Lifting P", "dense"))
+a.add(SectionHeader(r"Encoder $\downarrow$"))
 a.add(FourierBlock(modes=32, width=64, label="Fourier Enc 1"))
 a.add(FourierBlock(modes=16, width=128, label="Fourier Enc 2"))
+a.add(SectionHeader("Bottleneck"))
 a.add(FourierBlock(modes=8, width=256, label="Bottleneck"))
-a.add(FourierBlock(modes=16, width=128, label="Fourier Dec 2 + Skip"))
-a.add(FourierBlock(modes=32, width=64, label="Fourier Dec 1 + Skip"))
+a.add(SectionHeader(r"Decoder $\uparrow$ + Skip"))
+a.add(FourierBlock(modes=16, width=128, label="Fourier Dec 2"))
+a.add(FourierBlock(modes=32, width=64, label="Fourier Dec 1"))
 a.add(CustomBlock("Projection Q", "dense"))
 a.add(ClassificationHead(label=r"Output $u(x)$"))
 save(a, "24_uno")
