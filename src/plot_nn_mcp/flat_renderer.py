@@ -211,5 +211,5 @@ def flat_dim_label(text: str, node: str, side: str = "left",
     anchor = "east" if side == "left" else "west"
     return (
         rf"\node[{side}={distance}cm of {node}, "
-        rf"font=\sffamily\tiny, text=clrborder, anchor={anchor}] {{{text}}};" "\n"
+        rf"font=\sffamily\scriptsize, text=clrborder, anchor={anchor}] {{{text}}};" "\n"
     )

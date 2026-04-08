@@ -5,14 +5,15 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from plot_nn_mcp.dsl import Architecture, Embedding, TransformerBlock, ClassificationHead
+from plot_nn_mcp.dsl import Architecture, Embedding, PositionalEncoding, TransformerBlock, ClassificationHead
 
 # ── Define ModernBERT in 10 lines ──
 arch = Architecture(
     r"ModernBERT-base \enspace$\cdot$ 22L $\cdot$ 768d $\cdot$ 12h $\cdot$ Pre-LN $\cdot$ GeGLU $\cdot$ RoPE",
     theme="modern",
 )
-arch.add(Embedding(d_model=768, rope=True))
+arch.add(Embedding(d_model=768))
+arch.add(PositionalEncoding(encoding_type="rope", d_model=768))
 for i in range(22):
     attn = "global" if (i + 1) % 3 == 0 else "local"
     arch.add(TransformerBlock(

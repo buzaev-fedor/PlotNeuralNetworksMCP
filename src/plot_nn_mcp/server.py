@@ -255,6 +255,7 @@ def generate_architecture(
         layers: List of layer dicts. Each must have a "layer" key specifying the type.
                 Supported types and their params:
                 - {"layer": "Embedding", "d_model": 768, "rope": true, "label": "..."}
+                - {"layer": "PositionalEncoding", "encoding_type": "rope"|"learned"|"sinusoidal"|"alibi", "d_model": 768}
                 - {"layer": "TransformerBlock", "attention": "local"|"global"|"self"|"masked",
                    "norm": "pre_ln"|"post_ln", "ffn": "geglu"|"gelu"|"swiglu",
                    "d_ff": 2048, "heads": 12, "d_model": 768}
@@ -273,12 +274,13 @@ def generate_architecture(
         JSON with tex_path, tex_source, status, and optional pdf_path.
     """
     from .dsl import (
-        Architecture, Embedding, TransformerBlock, ConvBlock,
-        DenseLayer, ClassificationHead, FourierBlock, CustomBlock,
+        Architecture, Embedding, PositionalEncoding, TransformerBlock,
+        ConvBlock, DenseLayer, ClassificationHead, FourierBlock, CustomBlock,
     )
 
     LAYER_MAP = {
         "Embedding": Embedding,
+        "PositionalEncoding": PositionalEncoding,
         "TransformerBlock": TransformerBlock,
         "ConvBlock": ConvBlock,
         "DenseLayer": DenseLayer,

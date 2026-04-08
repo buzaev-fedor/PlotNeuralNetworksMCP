@@ -41,6 +41,13 @@ class Embedding:
 
 
 @dataclass
+class PositionalEncoding:
+    encoding_type: Literal["rope", "learned", "sinusoidal", "alibi"] = "learned"
+    d_model: int = 512
+    label: str | None = None
+
+
+@dataclass
 class TransformerBlock:
     attention: Literal["self", "masked", "cross", "local", "global"] = "self"
     norm: Literal["pre_ln", "post_ln"] = "pre_ln"
@@ -88,7 +95,7 @@ class CustomBlock:
     label: str | None = None
 
 
-Layer = Embedding | TransformerBlock | ConvBlock | DenseLayer | ClassificationHead | FourierBlock | CustomBlock
+Layer = Embedding | PositionalEncoding | TransformerBlock | ConvBlock | DenseLayer | ClassificationHead | FourierBlock | CustomBlock
 
 
 # ---------------------------------------------------------------------------
@@ -327,8 +334,6 @@ def _render_vertical(
         if isinstance(layer, Embedding):
             nid = f"layer_{node_idx}"
             label = layer.label
-            if layer.rope:
-                label += " + RoPE"
             parts.append(flat_block(
                 nid, label, "embed",
                 position="(0,0)" if prev is None else None,
@@ -338,9 +343,39 @@ def _render_vertical(
                 parts.append(flat_arrow(prev, nid))
             parts.append(flat_dim_label(str(layer.d_model), nid, side="left"))
             prev = nid
+            # If rope=True and next layer is NOT PositionalEncoding, auto-add RoPE block
+            next_is_pos = (i + 1 < len(layers) and isinstance(layers[i + 1], PositionalEncoding))
+            if layer.rope and not next_is_pos:
+                rope_nid = f"layer_{node_idx}_rope"
+                parts.append(flat_block(
+                    rope_nid, "RoPE", "residual",
+                    above_of=nid, node_distance=0.25,
+                    width=3.0, height=0.65, opacity=0.5,
+                ))
+                parts.append(flat_arrow(nid, rope_nid))
+                prev = rope_nid
             if grp_id is not None:
                 group_frame_data.setdefault(grp_id, {"count": grp.count, "nodes": []})
                 group_frame_data[grp_id]["nodes"].append(nid)
+
+        elif isinstance(layer, PositionalEncoding):
+            nid = f"layer_{node_idx}"
+            type_labels = {
+                "rope": "RoPE",
+                "learned": "Learned Pos. Enc.",
+                "sinusoidal": "Sinusoidal Pos. Enc.",
+                "alibi": "ALiBi",
+            }
+            label = layer.label or type_labels.get(layer.encoding_type, "Pos. Encoding")
+            parts.append(flat_block(
+                nid, label, "residual",
+                above_of=prev, node_distance=0.25,
+                width=3.0, height=0.65, opacity=0.5,
+            ))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            parts.append(flat_dim_label(str(layer.d_model), nid, side="left"))
+            prev = nid
 
         elif isinstance(layer, TransformerBlock):
             # Add separator between consecutive transformer blocks
