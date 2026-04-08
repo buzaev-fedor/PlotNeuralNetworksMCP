@@ -435,10 +435,13 @@ def _render_transformer_block(
     prev: str,
     theme: Theme,
     node_dist: float = 0.35,
+    block_idx: int = 0,
 ) -> tuple[list[str], str, list[str]]:
     """Render one TransformerBlock. Returns (tikz_lines, last_node_name, all_node_names)."""
     lines: list[str] = []
     nodes: list[str] = []
+    # Alternate skip xshift per block to prevent overlap
+    skip_xshift = 2.0 + (block_idx % 3) * 0.2
     attn_color = "attention" if block.attention == "global" else "attention_alt"
     attn_label = _attention_label(block)
     ffn_label = _ffn_label(block)
@@ -469,11 +472,11 @@ def _render_transformer_block(
         lines.append(flat_block(at, attn_label, attn_color, above_of=n1, node_distance=node_dist,
                                 width=4.2, height=attn_height, opacity=attn_opacity))
         lines.append(flat_arrow(n1, at))
-        lines.append(flat_dim_label(f"{block.heads}h", at, side="left", distance=0.15))
+        lines.append(flat_dim_label(f"{block.heads}h", at, side="left", distance=0.25))
 
         lines.append(flat_add_circle(a1, above_of=at, node_distance=0.25))
         lines.append(flat_arrow(at, a1))
-        lines.append(flat_skip_arrow(entry, a1))  # skip from block entry, not from prev
+        lines.append(flat_skip_arrow(entry, a1, xshift=skip_xshift))
 
         lines.append(flat_block(n2, "LayerNorm", "norm", above_of=a1, node_distance=node_dist,
                                 width=3.0, height=0.6))
@@ -481,11 +484,11 @@ def _render_transformer_block(
         lines.append(flat_block(ff, ffn_label, "ffn", above_of=n2, node_distance=node_dist,
                                 width=3.8, height=0.85))
         lines.append(flat_arrow(n2, ff))
-        lines.append(flat_dim_label(str(block.d_ff), ff, side="left", distance=0.15))
+        lines.append(flat_dim_label(str(block.d_ff), ff, side="left", distance=0.25))
 
         lines.append(flat_add_circle(a2, above_of=ff, node_distance=0.25))
         lines.append(flat_arrow(ff, a2))
-        lines.append(flat_skip_arrow(a1, a2))  # skip from after first add
+        lines.append(flat_skip_arrow(a1, a2, xshift=skip_xshift))
 
         # exclude entry from group frame nodes (it's a spacer near prev layer)
         nodes = [n1, at, a1, n2, ff, a2]
@@ -509,14 +512,14 @@ def _render_transformer_block(
         lines.append(flat_arrow(entry, at))
         lines.append(flat_add_circle(a1, above_of=at, node_distance=0.25))
         lines.append(flat_arrow(at, a1))
-        lines.append(flat_skip_arrow(entry, a1))
+        lines.append(flat_skip_arrow(entry, a1, xshift=skip_xshift))
         lines.append(flat_block(n1, "LayerNorm", "norm", above_of=a1, node_distance=node_dist))
         lines.append(flat_arrow(a1, n1))
         lines.append(flat_block(ff, ffn_label, "ffn", above_of=n1, node_distance=node_dist))
         lines.append(flat_arrow(n1, ff))
         lines.append(flat_add_circle(a2, above_of=ff, node_distance=0.25))
         lines.append(flat_arrow(ff, a2))
-        lines.append(flat_skip_arrow(n1, a2))
+        lines.append(flat_skip_arrow(n1, a2, xshift=skip_xshift))
         lines.append(flat_block(n2, "LayerNorm", "norm", above_of=a2, node_distance=node_dist))
         lines.append(flat_arrow(a2, n2))
 
@@ -642,8 +645,9 @@ def _render_vertical(
                 parts.append(flat_separator(prev, sep_name))
 
             prefix = f"tb_{node_idx}"
+            tb_counter = getattr(_render_vertical, '_tb_count', 0)
             block_lines, last_node, block_nodes = _render_transformer_block(
-                layer, prefix, prev, theme,
+                layer, prefix, prev, theme, block_idx=node_idx,
             )
             parts.extend(block_lines)
             prev = last_node
@@ -1024,18 +1028,30 @@ def _render_vertical(
 
         elif isinstance(layer, Separator):
             nid = f"sep_label_{node_idx}"
-            if prev:
+            if prev is None:
+                # First element — place at origin
+                parts.append(
+                    rf"\node[inner sep=0, minimum size=0] ({nid}_anchor) at (0,0) {{}};" "\n"
+                )
+                parts.append(flat_separator_label(nid, layer.label, f"{nid}_anchor",
+                                                   style=layer.style))
+            else:
                 parts.append(flat_separator_label(nid, layer.label, prev,
                                                    style=layer.style))
-                prev = nid
-            # Separator is not added to groups
+            prev = nid
 
         elif isinstance(layer, SectionHeader):
             nid = f"section_{node_idx}"
-            if prev:
+            if prev is None:
+                parts.append(
+                    rf"\node[inner sep=0, minimum size=0] ({nid}_anchor) at (0,0) {{}};" "\n"
+                )
+                parts.append(flat_section_header(nid, layer.title, f"{nid}_anchor",
+                                                  subtitle=layer.subtitle))
+            else:
                 parts.append(flat_section_header(nid, layer.title, prev,
                                                   subtitle=layer.subtitle))
-                prev = nid
+            prev = nid
 
         node_idx += 1
 
