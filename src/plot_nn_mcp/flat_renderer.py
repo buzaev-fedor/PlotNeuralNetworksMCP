@@ -101,7 +101,7 @@ def flat_arrow(from_name: str, to_name: str,
     return rf"\draw[arrow] ({from_name}.{from_anchor}) -- ({to_name}.{to_anchor});" "\n"
 
 
-def flat_skip_arrow(from_name: str, to_name: str, xshift: float = 0.3,
+def flat_skip_arrow(from_name: str, to_name: str, xshift: float = 0.55,
                     direction: str = "right") -> str:
     """Residual/skip connection arrow that curves to the right of blocks, inside the group frame."""
     sign = "" if direction == "right" else "-"
