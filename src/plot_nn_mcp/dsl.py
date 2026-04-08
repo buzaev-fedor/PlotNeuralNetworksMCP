@@ -432,7 +432,7 @@ def _render_vertical(
                 f"grp_{hash(gid) % 10000}",
                 gdata["nodes"],
                 repeat=gdata["count"],
-                padding=0.35,
+                padding=0.45,
             ))
 
     # Title
