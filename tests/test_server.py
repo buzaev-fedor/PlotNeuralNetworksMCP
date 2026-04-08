@@ -12,10 +12,12 @@ from plot_nn_mcp.pycore.tikzeng import (
 )
 from plot_nn_mcp.pycore.blocks import block_2ConvPool, block_Unconv, block_Res
 from plot_nn_mcp.server import (
-    _build_arch, _coerce_params, _copy_layers_to,
+    _build_arch,
     list_layer_types, generate_diagram, generate_preset,
     generate_latex_snippet,
 )
+from plot_nn_mcp.registry import coerce_params
+from plot_nn_mcp.compiler import copy_layers_to
 
 
 class TestTikzeng:
@@ -110,9 +112,9 @@ class TestBlocks:
 
 
 class TestServer:
-    def test_coerce_params_conv_conv_relu(self):
+    def testcoerce_params_conv_conv_relu(self):
         params = {"n_filer": [64, 64], "width": [2, 2], "height": 40}
-        result = _coerce_params("ConvConvRelu", params)
+        result = coerce_params("ConvConvRelu", params)
         assert result["n_filer"] == (64, 64)
         assert result["width"] == (2, 2)
 
@@ -205,9 +207,9 @@ class TestServer:
             import shutil
             shutil.rmtree(result["work_dir"])
 
-    def test_copy_layers_to(self):
+    def testcopy_layers_to(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            _copy_layers_to(tmpdir)
+            copy_layers_to(tmpdir)
             layers_dir = os.path.join(tmpdir, "layers")
             assert os.path.isdir(layers_dir)
             assert os.path.exists(os.path.join(layers_dir, "Box.sty"))
