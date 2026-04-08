@@ -1,0 +1,115 @@
+\ProvidesPackage{PartitionedBox}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Multi-partition 3D box for visualizing multi-head attention and similar
+% parallel operations. Divides the box into N vertical stripes with
+% graduating opacity from 0.4 to 0.9.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\tikzset{PartitionedBox/.pic={\tikzset{/partblock/.cd,#1}
+
+        \pgfmathsetmacro{\y}{\cubey*\scale}
+        \pgfmathsetmacro{\z}{\cubez*\scale}
+        \pgfmathsetmacro{\totalx}{\cubex*\scale}
+        \pgfmathsetmacro{\partw}{\totalx/\nparts}
+
+        %Draw N partitions
+        \foreach \p in {1,...,\nparts}
+        {
+            \pgfmathsetmacro{\startx}{(\p-1)*\partw}
+            \pgfmathsetmacro{\endx}{\p*\partw}
+            \pgfmathsetmacro{\partopacity}{\opacity*0.5 + \opacity*0.5*\p/\nparts}
+
+            \tikzstyle{partbox}=[every edge/.append style={pic actions, densely dashed, opacity=.7},fill opacity=\partopacity, pic actions,fill=\fill]
+
+            \coordinate (pa) at (\startx , \y/2 , \z/2);
+            \coordinate (pb) at (\startx ,-\y/2 , \z/2);
+            \coordinate (pc) at (\endx   ,-\y/2 , \z/2);
+            \coordinate (pd) at (\endx   , \y/2 , \z/2);
+            \coordinate (pe) at (\endx   , \y/2 ,-\z/2);
+            \coordinate (pf) at (\endx   ,-\y/2 ,-\z/2);
+            \coordinate (pg) at (\startx ,-\y/2 ,-\z/2);
+            \coordinate (ph) at (\startx , \y/2 ,-\z/2);
+
+            \draw [partbox]
+                (pd) -- (pa) -- (pb) -- (pc) -- cycle
+                (pd) -- (pa) -- (ph) -- (pe) -- cycle
+                %dotted edges
+                (pf) edge (pg)
+                (pb) edge (pg)
+                (ph) edge (pg)
+            ;
+        }%Loop ends
+
+        %East face of last partition
+        \tikzstyle{partbox}=[every edge/.append style={pic actions, densely dashed, opacity=.7},fill opacity=\opacity, pic actions,fill=\fill]
+        \coordinate (lastd) at (\totalx , \y/2 , \z/2);
+        \coordinate (laste) at (\totalx , \y/2 ,-\z/2);
+        \coordinate (lastf) at (\totalx ,-\y/2 ,-\z/2);
+        \coordinate (lastc) at (\totalx ,-\y/2 , \z/2);
+        \draw [partbox] (lastd) -- (laste) -- (lastf) -- (lastc) -- cycle;
+
+        %Labels
+        \coordinate (a1) at (0 , \y/2 , \z/2);
+        \coordinate (b1) at (0 ,-\y/2 , \z/2);
+        \tikzstyle{depthlabel}=[pos=0,text width=14*\z,text centered,sloped]
+
+        \path (lastc) edge ["\small\zlabel"',depthlabel](lastf); %depth label
+
+        \tikzstyle{captionlabel}=[text width=15*\totalx/\scale,text centered]
+        \path (\totalx/2,-\y/2,+\z/2) + (0,-25pt) coordinate (cap)
+        edge ["\textcolor{black}{ \bf \caption}"',captionlabel](cap) ; %Block caption
+
+        %Define nodes to be used outside on the pic object (same as Box.sty)
+        \coordinate (\name-west)   at (0,0,0) ;
+        \coordinate (\name-east)   at (\totalx, 0,0) ;
+        \coordinate (\name-north)  at (\totalx/2,\y/2,0);
+        \coordinate (\name-south)  at (\totalx/2,-\y/2,0);
+        \coordinate (\name-anchor) at (\totalx/2, 0,0) ;
+
+        \coordinate (\name-near) at (\totalx/2,0,\z/2);
+        \coordinate (\name-far)  at (\totalx/2,0,-\z/2);
+
+        \coordinate (\name-nearwest) at (0,0,\z/2);
+        \coordinate (\name-neareast) at (\totalx,0,\z/2);
+        \coordinate (\name-farwest)  at (0,0,-\z/2);
+        \coordinate (\name-fareast)  at (\totalx,0,-\z/2);
+
+        \coordinate (\name-northeast) at (\name-north-|\name-east);
+        \coordinate (\name-northwest) at (\name-north-|\name-west);
+        \coordinate (\name-southeast) at (\name-south-|\name-east);
+        \coordinate (\name-southwest) at (\name-south-|\name-west);
+
+        \coordinate (\name-nearnortheast)  at (\totalx, \y/2, \z/2);
+        \coordinate (\name-farnortheast)   at (\totalx, \y/2,-\z/2);
+        \coordinate (\name-nearsoutheast)  at (\totalx,-\y/2, \z/2);
+        \coordinate (\name-farsoutheast)   at (\totalx,-\y/2,-\z/2);
+
+        \coordinate (\name-nearnorthwest)  at (0, \y/2, \z/2);
+        \coordinate (\name-farnorthwest)   at (0, \y/2,-\z/2);
+        \coordinate (\name-nearsouthwest)  at (0,-\y/2, \z/2);
+        \coordinate (\name-farsouthwest)   at (0,-\y/2,-\z/2);
+
+    },
+    /partblock/.search also={/tikz},
+    /partblock/.cd,
+    width/.store        in=\cubex,
+    height/.store       in=\cubey,
+    depth/.store        in=\cubez,
+    scale/.store        in=\scale,
+    nparts/.store       in=\nparts,
+    zlabel/.store       in=\zlabel,
+    caption/.store      in=\caption,
+    name/.store         in=\name,
+    fill/.store         in=\fill,
+    opacity/.store      in=\opacity,
+    fill={rgb:red,5;green,5;blue,5;white,15},
+    opacity=0.7,
+    width=6,
+    height=13,
+    depth=15,
+    scale=.2,
+    nparts=4,
+    zlabel=,
+    caption=,
+    name=,
+}

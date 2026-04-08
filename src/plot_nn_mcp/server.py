@@ -12,7 +12,10 @@ from mcp.server.fastmcp import FastMCP
 
 from .compiler import compile_tex, copy_layers_to, prepare_work_dir, write_and_compile
 from .presets import PRESETS
-from .pycore.tikzeng import to_begin, to_connection, to_cor, to_end, to_head, to_skip
+from .pycore.tikzeng import (
+    to_begin, to_branch, to_connection, to_cor, to_end, to_head,
+    to_merge, to_repeat_bracket, to_skip, to_skip_bottom,
+)
 from .registry import LAYER_REGISTRY, coerce_params, get_layer_metadata
 
 mcp = FastMCP(
@@ -79,6 +82,26 @@ def list_layer_types() -> str:
             "description": "Residual block with skip connection",
             "params": "num, name, botton, top, s_filer=256, n_filer=64, offset='(0,0,0)', size=(32,32,3.5), opacity=0.5",
         },
+        "block_TransformerEncoderLayer": {
+            "description": "Transformer encoder layer: MHA → Add&Norm → FFN → Add&Norm",
+            "params": "name, botton, top, d_model=512, num_heads=8, d_ff=2048, offset='(2,0,0)', size=(32,32,6)",
+        },
+        "block_TransformerDecoderLayer": {
+            "description": "Transformer decoder layer: Masked MHA → Cross-MHA → FFN with Add&Norm",
+            "params": "name, botton, top, encoder_out, d_model=512, num_heads=8, d_ff=2048, offset='(2,0,0)', size=(32,32,6)",
+        },
+        "block_EmbeddingStack": {
+            "description": "Token + position (+ optional segment) embeddings → sum → norm",
+            "params": "name, botton, top, d_model=512, offset='(1,0,0)', size=(32,32,2), include_segment=False",
+        },
+        "block_MLPStack": {
+            "description": "Stack of N dense layers with connections",
+            "params": "name, botton, top, n_layers=3, hidden_size=64, offset='(1,0,0)', size=(8,25,2)",
+        },
+        "block_FourierLayer": {
+            "description": "Fourier layer: spectral conv + linear skip → sum",
+            "params": "name, botton, top, modes=16, offset='(2,0,0)', size=(32,32,4)",
+        },
     }
     return json.dumps({"layers": layer_info, "blocks": blocks_info}, indent=2)
 
@@ -124,6 +147,7 @@ def generate_diagram(
 @mcp.tool()
 def generate_preset(
     preset: str,
+    params: dict | None = None,
     output_dir: str | None = None,
     filename: str | None = None,
     compile_pdf: bool = True,
@@ -136,6 +160,13 @@ def generate_preset(
                 - "vgg16" - VGG-16 style architecture
                 - "unet" - U-Net encoder-decoder architecture
                 - "resnet" - ResNet-style with residual connections
+                - "transformer" - Full encoder-decoder Transformer (params: n_enc, n_dec, d_model, n_heads, d_ff)
+                - "bert" - BERT encoder-only (params: n_layers, d_model, n_heads, d_ff)
+                - "gpt" - GPT decoder-only (params: n_layers, d_model, n_heads, d_ff)
+                - "vit" - Vision Transformer (params: n_layers, d_model, n_heads, d_ff, patch_size)
+                - "pinn" - Physics-Informed Neural Network (params: n_hidden, hidden_size)
+                - "fno" - Fourier Neural Operator (params: n_layers, modes, width)
+        params: Optional dict of architecture parameters (e.g. {"n_layers": 6, "d_model": 512}).
         output_dir: Directory to save output files. Uses temp dir if not specified.
         filename: Base filename. Defaults to the preset name.
         compile_pdf: Whether to compile to PDF. Default: true.
@@ -150,7 +181,7 @@ def generate_preset(
         })
 
     work_dir, _ = prepare_work_dir(output_dir)
-    arch = PRESETS[preset]()
+    arch = PRESETS[preset](**(params or {}))
     result = write_and_compile(arch, work_dir, filename or preset, compile_pdf)
     result["preset"] = preset
     return json.dumps(result, indent=2)

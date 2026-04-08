@@ -11,8 +11,10 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from .pycore.tikzeng import (
-    to_Conv, to_ConvConvRelu, to_ConvRes, to_ConvSoftMax,
-    to_input, to_Pool, to_SoftMax, to_Sum, to_UnPool,
+    to_Concat, to_Conv, to_ConvConvRelu, to_ConvRes, to_ConvSoftMax,
+    to_Dense, to_Embed, to_input, to_Lifting, to_MultiHeadAttn,
+    to_Multiply, to_Norm, to_Pool, to_SoftMax, to_SpectralConv,
+    to_Sum, to_UnPool,
 )
 
 
@@ -36,6 +38,15 @@ LAYER_REGISTRY: dict[str, LayerSpec] = {
     "SoftMax": LayerSpec(to_SoftMax, "Standalone softmax layer"),
     "Sum": LayerSpec(to_Sum, "Element-wise sum operation (ball with + symbol)"),
     "Input": LayerSpec(to_input, "Input image embedding"),
+    # Transformer / new architecture layers
+    "Dense": LayerSpec(to_Dense, "Fully-connected / dense layer"),
+    "Norm": LayerSpec(to_Norm, "Layer normalization / batch normalization bar"),
+    "Embed": LayerSpec(to_Embed, "Embedding layer (token, position, segment)"),
+    "MultiHeadAttn": LayerSpec(to_MultiHeadAttn, "Multi-head attention (partitioned box)"),
+    "Multiply": LayerSpec(to_Multiply, "Element-wise multiply operation"),
+    "Concat": LayerSpec(to_Concat, "Concatenation operation"),
+    "SpectralConv": LayerSpec(to_SpectralConv, "Spectral convolution (FNO Fourier layer)"),
+    "Lifting": LayerSpec(to_Lifting, "Lifting / projection layer (FNO)"),
 }
 
 

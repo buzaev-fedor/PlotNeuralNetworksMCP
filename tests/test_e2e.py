@@ -366,7 +366,7 @@ class TestDocumentStructure:
         result = to_cor()
         # Each color definition should match \def\Name{rgb:...}
         matches = re.findall(r"\\def\\(\w+)\{(rgb:[^}]+)\}", result)
-        assert len(matches) == 8
+        assert len(matches) == 14  # 8 original + 6 new architecture colors
         for name, value in matches:
             assert value.startswith("rgb:")
 
@@ -471,8 +471,12 @@ class TestBlocksE2E:
 
 class TestRegistry:
     def test_all_layer_types_registered(self):
-        expected = {"Conv", "ConvConvRelu", "Pool", "UnPool", "ConvRes",
-                    "ConvSoftMax", "SoftMax", "Sum", "Input"}
+        expected = {
+            "Conv", "ConvConvRelu", "Pool", "UnPool", "ConvRes",
+            "ConvSoftMax", "SoftMax", "Sum", "Input",
+            "Dense", "Norm", "Embed", "MultiHeadAttn",
+            "Multiply", "Concat", "SpectralConv", "Lifting",
+        }
         assert set(LAYER_REGISTRY.keys()) == expected
 
     def test_each_registry_entry_is_layerspec(self):
