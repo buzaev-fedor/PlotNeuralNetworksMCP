@@ -235,6 +235,116 @@ def generate_latex_snippet(
     return "".join(arch)
 
 
+@mcp.tool()
+def generate_architecture(
+    name: str,
+    layers: list[dict],
+    theme: str = "modern",
+    show_n: int = 4,
+    output_dir: str | None = None,
+    filename: str = "architecture",
+    compile_pdf: bool = True,
+) -> str:
+    """Generate a architecture diagram using the semantic DSL with 2D vertical layout.
+
+    Produces clean, publication-quality diagrams with themed colors,
+    auto-grouping of repeated blocks, and vertical stacking.
+
+    Args:
+        name: Architecture title (e.g. "ModernBERT-base").
+        layers: List of layer dicts. Each must have a "layer" key specifying the type.
+                Supported types and their params:
+                - {"layer": "Embedding", "d_model": 768, "rope": true, "label": "..."}
+                - {"layer": "TransformerBlock", "attention": "local"|"global"|"self"|"masked",
+                   "norm": "pre_ln"|"post_ln", "ffn": "geglu"|"gelu"|"swiglu",
+                   "d_ff": 2048, "heads": 12, "d_model": 768}
+                - {"layer": "ConvBlock", "filters": 64, "kernel_size": 3, "pool": "max"}
+                - {"layer": "DenseLayer", "units": 256}
+                - {"layer": "ClassificationHead", "label": "Output"}
+                - {"layer": "FourierBlock", "modes": 16}
+                - {"layer": "CustomBlock", "text": "My Layer", "color_role": "attention"}
+        theme: Color theme. One of: "modern", "paper", "vibrant", "monochrome".
+        show_n: Number of repeated blocks to show explicitly (rest collapsed with xN).
+        output_dir: Directory for output files. Uses temp dir if not specified.
+        filename: Base filename (without extension).
+        compile_pdf: Whether to compile to PDF.
+
+    Returns:
+        JSON with tex_path, tex_source, status, and optional pdf_path.
+    """
+    from .dsl import (
+        Architecture, Embedding, TransformerBlock, ConvBlock,
+        DenseLayer, ClassificationHead, FourierBlock, CustomBlock,
+    )
+
+    LAYER_MAP = {
+        "Embedding": Embedding,
+        "TransformerBlock": TransformerBlock,
+        "ConvBlock": ConvBlock,
+        "DenseLayer": DenseLayer,
+        "ClassificationHead": ClassificationHead,
+        "FourierBlock": FourierBlock,
+        "CustomBlock": CustomBlock,
+    }
+
+    arch = Architecture(name, theme=theme)
+    for spec in layers:
+        spec = dict(spec)
+        layer_type = spec.pop("layer")
+        cls = LAYER_MAP.get(layer_type)
+        if cls is None:
+            return json.dumps({
+                "error": f"Unknown DSL layer type: {layer_type}",
+                "available": list(LAYER_MAP.keys()),
+            })
+        arch.add(cls(**spec))
+
+    work_dir, _ = prepare_work_dir(output_dir)
+    tex_source = arch.render(show_n=show_n)
+    tex_path = os.path.join(work_dir, f"{filename}.tex")
+    with open(tex_path, "w") as f:
+        f.write(tex_source)
+
+    result = {
+        "tex_path": tex_path,
+        "work_dir": work_dir,
+        "tex_source": tex_source,
+    }
+
+    if compile_pdf:
+        from .compiler import compile_tex
+        pdf_path = compile_tex(tex_path, work_dir)
+        if pdf_path:
+            result["pdf_path"] = pdf_path
+            result["status"] = "success"
+        else:
+            result["status"] = "tex_generated"
+            result["note"] = "pdflatex not found or compilation failed."
+    else:
+        result["status"] = "tex_generated"
+
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+def list_themes() -> str:
+    """List available color themes for architecture diagrams.
+
+    Returns JSON with theme names and their color palettes.
+    """
+    from .themes import THEMES
+    result = {}
+    for name, theme in THEMES.items():
+        result[name] = {
+            "attention": f"#{theme.attention}",
+            "ffn": f"#{theme.ffn}",
+            "norm": f"#{theme.norm}",
+            "embed": f"#{theme.embed}",
+            "output": f"#{theme.output}",
+        }
+    return json.dumps(result, indent=2)
+
+
 def main():
     mcp.run()
 
