@@ -579,6 +579,16 @@ def _render_vertical(
         grp = _find_group(i, groups)
         grp_id = id(grp) if grp else None
 
+        # Add extra gap after a group ends (so frame doesn't overlap next layer)
+        if prev and i > 0 and grp_id is None:
+            prev_grp = _find_group(i - 1, groups)
+            if prev_grp is not None:
+                parts.append(
+                    rf"\node[inner sep=0, minimum size=0, above=0.5cm of {prev}] (gap_{node_idx}) {{}};" "\n"
+                )
+                parts.append(flat_arrow(prev, f"gap_{node_idx}"))
+                prev = f"gap_{node_idx}"
+
         if isinstance(layer, Embedding):
             nid = f"layer_{node_idx}"
             label = layer.label
@@ -1042,7 +1052,7 @@ def _render_vertical(
                 f"grp_{hash(gid) % 10000}",
                 gdata["nodes"],
                 repeat=gdata["count"],
-                padding=0.7,
+                padding=0.35,
             ))
 
     # Title
