@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "plot-nn-mcp"
+version = "0.1.0"
+description = "MCP server for generating neural network architecture diagrams using PlotNeuralNet"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = [
+    "mcp[cli]>=1.0.0",
+]
+
+[project.scripts]
+plot-nn-mcp = "plot_nn_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/plot_nn_mcp"]
