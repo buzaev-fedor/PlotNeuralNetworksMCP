@@ -49,11 +49,13 @@ class PositionalEncoding:
 
 @dataclass
 class TransformerBlock:
-    attention: Literal["self", "masked", "cross", "local", "global"] = "self"
+    attention: Literal["self", "masked", "cross", "local", "global",
+                       "gqa", "mqa"] = "self"
     norm: Literal["pre_ln", "post_ln"] = "pre_ln"
     ffn: Literal["gelu", "geglu", "swiglu", "relu"] = "gelu"
     d_ff: int = 2048
     heads: int = 8
+    kv_heads: int | None = None  # for GQA/MQA
     d_model: int = 512
     label: str | None = None
 
@@ -87,6 +89,166 @@ class FourierBlock:
     label: str | None = None
 
 
+# --- Regularization ---
+
+@dataclass
+class Dropout:
+    rate: float = 0.1
+    label: str | None = None
+
+
+@dataclass
+class Activation:
+    function: Literal["relu", "gelu", "swish", "mish", "sigmoid",
+                      "tanh", "softmax", "leaky_relu", "selu"] = "relu"
+    label: str | None = None
+
+
+# --- Normalization variants ---
+
+@dataclass
+class BatchNorm:
+    label: str = "BatchNorm"
+
+
+@dataclass
+class RMSNorm:
+    label: str = "RMSNorm"
+
+
+@dataclass
+class AdaptiveLayerNorm:
+    label: str = "AdaLN"
+    condition: str = "timestep"
+
+
+# --- Residual / Bottleneck composites ---
+
+@dataclass
+class ResidualBlock:
+    filters: int = 64
+    kernel_size: int = 3
+    label: str | None = None
+
+
+@dataclass
+class BottleneckBlock:
+    filters: int = 64
+    expansion: int = 4
+    label: str | None = None
+
+
+# --- GAN ---
+
+@dataclass
+class Generator:
+    channels: int = 64
+    label: str = "Generator"
+
+
+@dataclass
+class Discriminator:
+    channels: int = 64
+    label: str = "Discriminator"
+
+
+# --- VAE / Autoencoder ---
+
+@dataclass
+class EncoderBlock:
+    d_model: int = 512
+    label: str = "Encoder"
+
+
+@dataclass
+class DecoderBlock:
+    d_model: int = 512
+    label: str = "Decoder"
+
+
+@dataclass
+class SamplingLayer:
+    label: str = r"Sampling ($\mu, \sigma$)"
+
+
+# --- Diffusion ---
+
+@dataclass
+class UNetBlock:
+    filters: int = 64
+    with_attention: bool = True
+    label: str | None = None
+
+
+@dataclass
+class NoiseHead:
+    label: str = "Noise Prediction"
+
+
+# --- State Space Models (Mamba) ---
+
+@dataclass
+class MambaBlock:
+    d_model: int = 512
+    d_state: int = 16
+    label: str | None = None
+
+
+@dataclass
+class SelectiveSSM:
+    d_model: int = 512
+    label: str = "Selective SSM"
+
+
+# --- Mixture of Experts ---
+
+@dataclass
+class MoELayer:
+    num_experts: int = 8
+    top_k: int = 2
+    d_ff: int = 2048
+    label: str | None = None
+
+
+@dataclass
+class Router:
+    num_experts: int = 8
+    top_k: int = 2
+    label: str | None = None
+
+
+@dataclass
+class Expert:
+    d_ff: int = 2048
+    label: str | None = None
+
+
+# --- Graph Neural Networks ---
+
+@dataclass
+class GraphConv:
+    channels: int = 64
+    label: str = "Graph Conv"
+
+
+@dataclass
+class MessagePassing:
+    aggregation: Literal["sum", "mean", "max"] = "sum"
+    label: str | None = None
+
+
+@dataclass
+class GraphAttention:
+    heads: int = 4
+    label: str = "Graph Attention"
+
+
+@dataclass
+class GraphPooling:
+    pool_type: Literal["max", "mean", "topk"] = "mean"
+    label: str | None = None
+
+
 @dataclass
 class CustomBlock:
     """Freeform block with explicit text and color role."""
@@ -95,7 +257,16 @@ class CustomBlock:
     label: str | None = None
 
 
-Layer = Embedding | PositionalEncoding | TransformerBlock | ConvBlock | DenseLayer | ClassificationHead | FourierBlock | CustomBlock
+# Union of all layer types
+Layer = (
+    Embedding | PositionalEncoding | TransformerBlock | ConvBlock | DenseLayer
+    | ClassificationHead | FourierBlock | Dropout | Activation | BatchNorm
+    | RMSNorm | AdaptiveLayerNorm | ResidualBlock | BottleneckBlock
+    | Generator | Discriminator | EncoderBlock | DecoderBlock | SamplingLayer
+    | UNetBlock | NoiseHead | MambaBlock | SelectiveSSM | MoELayer | Router
+    | Expert | GraphConv | MessagePassing | GraphAttention | GraphPooling
+    | CustomBlock
+)
 
 
 # ---------------------------------------------------------------------------
@@ -181,6 +352,8 @@ def _attention_label(block: TransformerBlock) -> str:
         "cross": "Cross-Attention",
         "local": "Local Attention",
         "global": "Global Attention",
+        "gqa": f"GQA ({block.kv_heads or block.heads // 4}kv)",
+        "mqa": "Multi-Query Attn",
     }
     return labels.get(block.attention, "Attention")
 
@@ -444,6 +617,315 @@ def _render_vertical(
             if grp_id is not None:
                 group_frame_data.setdefault(grp_id, {"count": grp.count, "nodes": []})
                 group_frame_data[grp_id]["nodes"].append(nid)
+
+        # --- Regularization / Activation ---
+
+        elif isinstance(layer, Dropout):
+            nid = f"layer_{node_idx}"
+            label = layer.label or f"Dropout ({layer.rate})"
+            parts.append(flat_block(nid, label, "border", above_of=prev,
+                                    node_distance=0.2, width=3.0, height=0.55, opacity=0.25))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            prev = nid
+
+        elif isinstance(layer, Activation):
+            nid = f"layer_{node_idx}"
+            fn_labels = {"relu": "ReLU", "gelu": "GELU", "swish": "Swish/SiLU",
+                         "mish": "Mish", "sigmoid": "Sigmoid", "tanh": "Tanh",
+                         "softmax": "Softmax", "leaky_relu": "LeakyReLU", "selu": "SELU"}
+            label = layer.label or fn_labels.get(layer.function, layer.function)
+            parts.append(flat_block(nid, label, "ffn", above_of=prev,
+                                    node_distance=0.2, width=3.0, height=0.6, opacity=0.6))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            prev = nid
+
+        # --- Normalization variants ---
+
+        elif isinstance(layer, (BatchNorm, RMSNorm)):
+            nid = f"layer_{node_idx}"
+            parts.append(flat_block(nid, layer.label, "norm", above_of=prev,
+                                    node_distance=0.2, width=3.4, height=0.65))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            prev = nid
+
+        elif isinstance(layer, AdaptiveLayerNorm):
+            nid = f"layer_{node_idx}"
+            label = f"{layer.label} ({layer.condition})"
+            parts.append(flat_block(nid, label, "norm", above_of=prev,
+                                    node_distance=0.3, width=3.4, height=0.7))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            prev = nid
+
+        # --- Residual / Bottleneck composites ---
+
+        elif isinstance(layer, ResidualBlock):
+            nid = f"layer_{node_idx}"
+            label = layer.label or f"ResBlock ({layer.filters})"
+            entry = f"{nid}_in"
+            conv1 = f"{nid}_c1"
+            conv2 = f"{nid}_c2"
+            add = f"{nid}_add"
+            parts.append(
+                rf"\node[inner sep=0, minimum size=0, above=0.4cm of {prev}] ({entry}) {{}};" "\n"
+            )
+            if prev:
+                parts.append(flat_arrow(prev, entry))
+            parts.append(flat_block(conv1, f"Conv{layer.kernel_size}x{layer.kernel_size} + BN + ReLU",
+                                    "attention", above_of=entry, node_distance=0.12, height=0.7))
+            parts.append(flat_arrow(entry, conv1))
+            parts.append(flat_block(conv2, f"Conv{layer.kernel_size}x{layer.kernel_size} + BN",
+                                    "attention_alt", above_of=conv1, node_distance=0.25, height=0.7))
+            parts.append(flat_arrow(conv1, conv2))
+            parts.append(flat_dim_label(str(layer.filters), conv2, side="left"))
+            parts.append(flat_add_circle(add, above_of=conv2, node_distance=0.25))
+            parts.append(flat_arrow(conv2, add))
+            parts.append(flat_skip_arrow(entry, add))
+            prev = add
+            if grp_id is not None:
+                group_frame_data.setdefault(grp_id, {"count": grp.count, "nodes": []})
+                group_frame_data[grp_id]["nodes"].extend([conv1, conv2, add])
+
+        elif isinstance(layer, BottleneckBlock):
+            nid = f"layer_{node_idx}"
+            entry = f"{nid}_in"
+            c1 = f"{nid}_1x1a"
+            c2 = f"{nid}_3x3"
+            c3 = f"{nid}_1x1b"
+            add = f"{nid}_add"
+            mid = layer.filters
+            out = layer.filters * layer.expansion
+            parts.append(
+                rf"\node[inner sep=0, minimum size=0, above=0.4cm of {prev}] ({entry}) {{}};" "\n"
+            )
+            if prev:
+                parts.append(flat_arrow(prev, entry))
+            parts.append(flat_block(c1, f"1x1 Conv ({mid})", "attention_alt",
+                                    above_of=entry, node_distance=0.12, height=0.6))
+            parts.append(flat_arrow(entry, c1))
+            parts.append(flat_block(c2, f"3x3 Conv ({mid})", "attention",
+                                    above_of=c1, node_distance=0.2, height=0.7))
+            parts.append(flat_arrow(c1, c2))
+            parts.append(flat_block(c3, f"1x1 Conv ({out})", "attention_alt",
+                                    above_of=c2, node_distance=0.2, height=0.6))
+            parts.append(flat_arrow(c2, c3))
+            parts.append(flat_add_circle(add, above_of=c3, node_distance=0.25))
+            parts.append(flat_arrow(c3, add))
+            parts.append(flat_skip_arrow(entry, add))
+            prev = add
+            if grp_id is not None:
+                group_frame_data.setdefault(grp_id, {"count": grp.count, "nodes": []})
+                group_frame_data[grp_id]["nodes"].extend([c1, c2, c3, add])
+
+        # --- GAN ---
+
+        elif isinstance(layer, Generator):
+            nid = f"layer_{node_idx}"
+            parts.append(flat_block(nid, layer.label, "embed", above_of=prev,
+                                    node_distance=0.4, height=1.0))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            parts.append(flat_dim_label(str(layer.channels), nid, side="left"))
+            prev = nid
+
+        elif isinstance(layer, Discriminator):
+            nid = f"layer_{node_idx}"
+            parts.append(flat_block(nid, layer.label, "physics", above_of=prev,
+                                    node_distance=0.4, height=1.0))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            parts.append(flat_dim_label(str(layer.channels), nid, side="left"))
+            prev = nid
+
+        # --- VAE / Autoencoder ---
+
+        elif isinstance(layer, EncoderBlock):
+            nid = f"layer_{node_idx}"
+            parts.append(flat_block(nid, layer.label, "attention", above_of=prev,
+                                    node_distance=0.4, height=1.0))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            parts.append(flat_dim_label(str(layer.d_model), nid, side="left"))
+            prev = nid
+
+        elif isinstance(layer, DecoderBlock):
+            nid = f"layer_{node_idx}"
+            parts.append(flat_block(nid, layer.label, "attention_alt", above_of=prev,
+                                    node_distance=0.4, height=1.0))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            parts.append(flat_dim_label(str(layer.d_model), nid, side="left"))
+            prev = nid
+
+        elif isinstance(layer, SamplingLayer):
+            nid = f"layer_{node_idx}"
+            parts.append(flat_block(nid, layer.label, "residual", above_of=prev,
+                                    node_distance=0.3, width=3.2, height=0.7, opacity=0.6))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            prev = nid
+
+        # --- Diffusion ---
+
+        elif isinstance(layer, UNetBlock):
+            nid = f"layer_{node_idx}"
+            label = layer.label or f"UNet Block ({layer.filters})"
+            if layer.with_attention:
+                label += " + Attn"
+            parts.append(flat_block(nid, label, "spectral", above_of=prev,
+                                    node_distance=0.4, height=0.9))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            parts.append(flat_dim_label(str(layer.filters), nid, side="left"))
+            prev = nid
+            if grp_id is not None:
+                group_frame_data.setdefault(grp_id, {"count": grp.count, "nodes": []})
+                group_frame_data[grp_id]["nodes"].append(nid)
+
+        elif isinstance(layer, NoiseHead):
+            nid = f"layer_{node_idx}"
+            parts.append(flat_block(nid, layer.label, "physics", above_of=prev,
+                                    node_distance=0.4, width=3.4, height=0.8))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            prev = nid
+
+        # --- State Space Models (Mamba) ---
+
+        elif isinstance(layer, MambaBlock):
+            nid = f"layer_{node_idx}"
+            label = layer.label or "Mamba Block"
+            entry = f"{nid}_in"
+            proj = f"{nid}_proj"
+            conv = f"{nid}_conv"
+            ssm = f"{nid}_ssm"
+            out = f"{nid}_out"
+            parts.append(
+                rf"\node[inner sep=0, minimum size=0, above=0.5cm of {prev}] ({entry}) {{}};" "\n"
+            )
+            if prev:
+                parts.append(flat_arrow(prev, entry))
+            parts.append(flat_block(proj, "Linear Proj", "dense", above_of=entry,
+                                    node_distance=0.12, height=0.65))
+            parts.append(flat_arrow(entry, proj))
+            parts.append(flat_block(conv, "Conv1D", "attention_alt", above_of=proj,
+                                    node_distance=0.25, height=0.65))
+            parts.append(flat_arrow(proj, conv))
+            parts.append(flat_block(ssm, "Selective SSM", "spectral", above_of=conv,
+                                    node_distance=0.25, height=0.85))
+            parts.append(flat_arrow(conv, ssm))
+            parts.append(flat_dim_label(str(layer.d_model), ssm, side="left"))
+            parts.append(flat_block(out, "Linear Out", "dense", above_of=ssm,
+                                    node_distance=0.25, height=0.65))
+            parts.append(flat_arrow(ssm, out))
+            prev = out
+            if grp_id is not None:
+                group_frame_data.setdefault(grp_id, {"count": grp.count, "nodes": []})
+                group_frame_data[grp_id]["nodes"].extend([proj, conv, ssm, out])
+
+        elif isinstance(layer, SelectiveSSM):
+            nid = f"layer_{node_idx}"
+            parts.append(flat_block(nid, layer.label, "spectral", above_of=prev,
+                                    node_distance=0.4, height=0.9))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            parts.append(flat_dim_label(str(layer.d_model), nid, side="left"))
+            prev = nid
+            if grp_id is not None:
+                group_frame_data.setdefault(grp_id, {"count": grp.count, "nodes": []})
+                group_frame_data[grp_id]["nodes"].append(nid)
+
+        # --- Mixture of Experts ---
+
+        elif isinstance(layer, MoELayer):
+            nid = f"layer_{node_idx}"
+            label = layer.label or f"MoE (top-{layer.top_k}/{layer.num_experts})"
+            router = f"{nid}_router"
+            experts = f"{nid}_experts"
+            parts.append(flat_block(router, f"Router (top-{layer.top_k})", "output",
+                                    above_of=prev, node_distance=0.4, width=3.0, height=0.7))
+            if prev:
+                parts.append(flat_arrow(prev, router))
+            parts.append(flat_block(experts, f"{layer.num_experts} Experts (FFN {layer.d_ff})",
+                                    "dense", above_of=router, node_distance=0.25, height=0.9))
+            parts.append(flat_arrow(router, experts))
+            prev = experts
+            if grp_id is not None:
+                group_frame_data.setdefault(grp_id, {"count": grp.count, "nodes": []})
+                group_frame_data[grp_id]["nodes"].extend([router, experts])
+
+        elif isinstance(layer, Router):
+            nid = f"layer_{node_idx}"
+            label = layer.label or f"Router (top-{layer.top_k}/{layer.num_experts})"
+            parts.append(flat_block(nid, label, "output", above_of=prev,
+                                    node_distance=0.3, width=3.0, height=0.7))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            prev = nid
+
+        elif isinstance(layer, Expert):
+            nid = f"layer_{node_idx}"
+            label = layer.label or f"Expert FFN ({layer.d_ff})"
+            parts.append(flat_block(nid, label, "dense", above_of=prev,
+                                    node_distance=0.3, height=0.8))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            prev = nid
+            if grp_id is not None:
+                group_frame_data.setdefault(grp_id, {"count": grp.count, "nodes": []})
+                group_frame_data[grp_id]["nodes"].append(nid)
+
+        # --- Graph Neural Networks ---
+
+        elif isinstance(layer, GraphConv):
+            nid = f"layer_{node_idx}"
+            parts.append(flat_block(nid, layer.label, "attention_alt", above_of=prev,
+                                    node_distance=0.4, height=0.85))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            parts.append(flat_dim_label(str(layer.channels), nid, side="left"))
+            prev = nid
+            if grp_id is not None:
+                group_frame_data.setdefault(grp_id, {"count": grp.count, "nodes": []})
+                group_frame_data[grp_id]["nodes"].append(nid)
+
+        elif isinstance(layer, MessagePassing):
+            nid = f"layer_{node_idx}"
+            label = layer.label or f"Message Passing ({layer.aggregation})"
+            parts.append(flat_block(nid, label, "spectral", above_of=prev,
+                                    node_distance=0.4, height=0.85))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            prev = nid
+            if grp_id is not None:
+                group_frame_data.setdefault(grp_id, {"count": grp.count, "nodes": []})
+                group_frame_data[grp_id]["nodes"].append(nid)
+
+        elif isinstance(layer, GraphAttention):
+            nid = f"layer_{node_idx}"
+            parts.append(flat_block(nid, layer.label, "attention", above_of=prev,
+                                    node_distance=0.4, height=0.9))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            parts.append(flat_dim_label(f"{layer.heads}h", nid, side="left"))
+            prev = nid
+            if grp_id is not None:
+                group_frame_data.setdefault(grp_id, {"count": grp.count, "nodes": []})
+                group_frame_data[grp_id]["nodes"].append(nid)
+
+        elif isinstance(layer, GraphPooling):
+            nid = f"layer_{node_idx}"
+            label = layer.label or f"Graph {layer.pool_type.title()}Pool"
+            parts.append(flat_block(nid, label, "ffn", above_of=prev,
+                                    node_distance=0.3, width=3.0, height=0.65))
+            if prev:
+                parts.append(flat_arrow(prev, nid))
+            prev = nid
+
+        # --- Freeform ---
 
         elif isinstance(layer, CustomBlock):
             nid = f"layer_{node_idx}"
