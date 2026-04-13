@@ -1,15 +1,34 @@
 """
-2D flat TikZ renderer for vertical architecture diagrams.
+2D flat TikZ renderer for architecture diagrams.
 
-Instead of 3D isometric boxes (Box.sty), this renderer uses TikZ nodes
-with rounded corners, centered text, and vertical (south→north) flow.
-Produces clean, publication-quality diagrams in the style of the original
-Transformer paper (Vaswani et al.).
+Uses TikZ nodes with rounded corners, centered text, and configurable flow:
+- Vertical (south→north): default, Transformer-paper style
+- Horizontal (west→east): ViT/DETR pipeline style
+
+Produces clean, publication-quality diagrams.
 """
 
 from __future__ import annotations
 
-from .themes import Theme, get_theme, theme_to_tikz_colors
+from .themes import Theme, theme_to_tikz_colors
+
+_LATEX_SPECIAL = str.maketrans({
+    "#": r"\#",
+    "%": r"\%",
+    "&": r"\&",
+    "_": r"\_",
+})
+
+
+def _latex_escape(text: str) -> str:
+    """Escape LaTeX special characters in user text.
+
+    If the text already contains LaTeX commands (backslash or $),
+    it is returned as-is to preserve intentional formatting.
+    """
+    if "\\" in text or "$" in text:
+        return text
+    return text.translate(_LATEX_SPECIAL)
 
 
 # ---------------------------------------------------------------------------
@@ -57,6 +76,22 @@ def flat_end() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Dimension encoding utilities
+# ---------------------------------------------------------------------------
+
+def width_from_dim(dim: int, min_dim: int = 32, max_dim: int = 512,
+                   min_width: float = 1.5, max_width: float = 7.0) -> float:
+    """Scale block width proportionally to channel/feature dimension.
+
+    Implements U-Net / ResNet best practice of encoding tensor
+    dimensionality in block geometry.
+    """
+    ratio = min(max(dim - min_dim, 0) / max(max_dim - min_dim, 1), 1.0)
+    return min_width + ratio * (max_width - min_width)
+
+
+
+# ---------------------------------------------------------------------------
 # Flat block primitives
 # ---------------------------------------------------------------------------
 
@@ -72,6 +107,8 @@ def flat_block(
     anchor: str | None = None,
     below_of: str | None = None,
     above_of: str | None = None,
+    left_of: str | None = None,
+    right_of: str | None = None,
     node_distance: float = 0.4,
     text_color: str = "clrtext",
 ) -> str:
@@ -87,36 +124,53 @@ def flat_block(
         opts.append(f"below={node_distance}cm of {below_of}")
     elif above_of:
         opts.append(f"above={node_distance}cm of {above_of}")
+    elif left_of:
+        opts.append(f"left={node_distance}cm of {left_of}")
+    elif right_of:
+        opts.append(f"right={node_distance}cm of {right_of}")
     if anchor:
         opts.append(f"anchor={anchor}")
 
     opts_str = ", ".join(opts)
-    pos = "" if (below_of or above_of) else f" at {position}"
-    return rf"\node[{opts_str}] ({name}){pos} {{{text}}};" "\n"
+    has_relative = below_of or above_of or left_of or right_of
+    pos = "" if has_relative else f" at {position}"
+    return rf"\node[{opts_str}] ({name}){pos} {{{_latex_escape(text)}}};" "\n"
 
 
 def flat_arrow(from_name: str, to_name: str,
                from_anchor: str = "north", to_anchor: str = "south") -> str:
-    """Vertical arrow between two blocks."""
+    """Arrow between two blocks (vertical: north→south, horizontal: east→west)."""
     return rf"\draw[arrow] ({from_name}.{from_anchor}) -- ({to_name}.{to_anchor});" "\n"
+
+
+def flat_arrow_h(from_name: str, to_name: str) -> str:
+    """Horizontal arrow (east→west) between two blocks."""
+    return rf"\draw[arrow] ({from_name}.east) -- ({to_name}.west);" "\n"
 
 
 def flat_skip_arrow(from_name: str, to_name: str, xshift: float = 2.2,
                     direction: str = "right") -> str:
-    """Residual/skip connection arrow that curves to the right of blocks, inside the group frame.
+    """Residual/skip connection arrow that curves around blocks.
 
-    xshift must be > half the block width (1.9cm for 3.8cm blocks)
-    to route outside blocks, and < frame_padding + 1.9cm to stay inside the frame.
+    direction: "right" routes via east side, "left" routes via west side.
+    xshift must be > half the block width to route outside blocks.
     """
-    sign = "" if direction == "right" else "-"
+    if direction == "left":
+        return (
+            rf"\draw[skiparrow] ({from_name}.west) -- ++(-{xshift},0) "
+            rf"|- ({to_name}.west);" "\n"
+        )
     return (
-        rf"\draw[skiparrow] ({from_name}.east) -- ++({sign}{xshift},0) "
+        rf"\draw[skiparrow] ({from_name}.east) -- ++({xshift},0) "
         rf"|- ({to_name}.east);" "\n"
     )
 
 
+
 def flat_add_circle(name: str, below_of: str | None = None,
                     above_of: str | None = None,
+                    left_of: str | None = None,
+                    right_of: str | None = None,
                     node_distance: float = 0.3) -> str:
     """Small '+' circle for residual addition."""
     pos_opt = ""
@@ -124,10 +178,38 @@ def flat_add_circle(name: str, below_of: str | None = None,
         pos_opt = f"below={node_distance}cm of {below_of}"
     elif above_of:
         pos_opt = f"above={node_distance}cm of {above_of}"
+    elif left_of:
+        pos_opt = f"left={node_distance}cm of {left_of}"
+    elif right_of:
+        pos_opt = f"right={node_distance}cm of {right_of}"
     return (
         rf"\node[circle, draw=clrborder, fill=clrresidual!30, "
         rf"inner sep=2pt, font=\sffamily\scriptsize\bfseries, {pos_opt}] "
         rf"({name}) {{+}};" "\n"
+    )
+
+
+def flat_op_circle(name: str, symbol: str = "+",
+                   below_of: str | None = None,
+                   above_of: str | None = None,
+                   left_of: str | None = None,
+                   right_of: str | None = None,
+                   node_distance: float = 0.3,
+                   fill: str = "clrresidual!30") -> str:
+    """Small circle with an operation symbol (⊕, ⊗, +, etc.)."""
+    pos_opt = ""
+    if below_of:
+        pos_opt = f"below={node_distance}cm of {below_of}"
+    elif above_of:
+        pos_opt = f"above={node_distance}cm of {above_of}"
+    elif left_of:
+        pos_opt = f"left={node_distance}cm of {left_of}"
+    elif right_of:
+        pos_opt = f"right={node_distance}cm of {right_of}"
+    return (
+        rf"\node[circle, draw=clrborder, fill={fill}, "
+        rf"inner sep=2pt, font=\sffamily\scriptsize\bfseries, {pos_opt}] "
+        rf"({name}) {{{symbol}}};" "\n"
     )
 
 
@@ -141,6 +223,7 @@ def group_frame(
     title: str = "",
     repeat: int | None = None,
     padding: float = 0.3,
+    horizontal: bool = False,
 ) -> str:
     """Draw a rounded rectangle around a group of nodes with optional title and ×N."""
     fit_list = " ".join(f"({n})" for n in fit_nodes)
@@ -156,8 +239,9 @@ def group_frame(
             rf"{{{title}}};"
         )
     if repeat and repeat > 1:
+        bracket_pos = "right=12pt of {n}.east, anchor=west" if not horizontal else "below=8pt of {n}.south, anchor=north"
         lines.append(
-            rf"\node[right=6pt of {name}.east, anchor=west, "
+            rf"\node[{bracket_pos.format(n=name)}, "
             rf"font=\sffamily\Large\bfseries, text=clrborder] "
             rf"{{$\times{repeat}$}};"
         )
@@ -186,11 +270,11 @@ def flat_separator_label(name: str, label: str, above_of: str,
         "double": "color=clrborder, double, line width=0.6pt",
     }.get(style, "color=clrborder, line width=1.2pt")
     return (
-        rf"\node[above=0.5cm of {above_of}, inner sep=0, minimum height=0] ({name}) {{}};" "\n"
+        rf"\node[above=0.5cm of {above_of}, inner sep=0, minimum height=0] ({name}_rule) {{}};" "\n"
         rf"\draw[{line_style}] "
-        rf"([xshift=-{width/2}cm]{name}.center) -- ([xshift={width/2}cm]{name}.center);" "\n"
-        rf"\node[above=2pt of {name}, font=\sffamily\small\bfseries, text=clrborder] "
-        rf"{{{label}}};" "\n"
+        rf"([xshift=-{width/2}cm]{name}_rule.center) -- ([xshift={width/2}cm]{name}_rule.center);" "\n"
+        rf"\node[above=3pt of {name}_rule, font=\sffamily\small\bfseries, text=clrborder] "
+        rf"({name}) {{{_latex_escape(label)}}};" "\n"
     )
 
 
@@ -202,24 +286,33 @@ def flat_section_header(name: str, title: str, above_of: str,
         rf"\draw[color=clrgroup_frame!50, line width=0.4pt] "
         rf"([xshift=-2.2cm]{name}_rule.center) -- ([xshift=2.2cm]{name}_rule.center);" "\n"
         rf"\node[above=4pt of {name}_rule, font=\sffamily\normalsize\bfseries, text=clrborder] "
-        rf"({name}) {{{title}}};" "\n"
+        rf"({name}) {{{_latex_escape(title)}}};" "\n"
     )
     if subtitle:
         lines += (
-            rf"\node[below=1pt of {name}_rule, font=\sffamily\tiny, text=clrgroup_frame] "
+            rf"\node[above=2pt of {name}, font=\sffamily\scriptsize, text=clrgroup_frame] "
             rf"{{{subtitle}}};" "\n"
         )
     return lines
 
 
 def flat_io_arrow(node: str, direction: str = "below", label: str = "") -> str:
-    """Draw an input or output arrow coming into or out of the diagram."""
+    """Draw an input or output arrow coming into or out of the diagram.
+
+    Directions: below/above for vertical layout, left/right for horizontal.
+    """
     if direction == "below":
-        label_node = rf" node[right, font=\sffamily\scriptsize, text=clrtext] {{{label}}}" if label else ""
+        label_node = rf" node[right, yshift=-2pt, font=\sffamily\scriptsize, text=clrtext] {{{label}}}" if label else ""
         return rf"\draw[arrow] ({node}.south) ++ (0,-0.5) --{label_node} ({node}.south);" "\n"
-    else:
-        label_node = rf" node[right, font=\sffamily\scriptsize, text=clrtext] {{{label}}}" if label else ""
+    elif direction == "above":
+        label_node = rf" node[right, yshift=-2pt, font=\sffamily\scriptsize, text=clrtext] {{{label}}}" if label else ""
         return rf"\draw[arrow] ({node}.north) --{label_node} ++ (0,0.5);" "\n"
+    elif direction == "left":
+        label_node = rf" node[above, yshift=2pt, font=\sffamily\scriptsize, text=clrtext] {{{label}}}" if label else ""
+        return rf"\draw[arrow] ({node}.west) ++ (-0.5,0) --{label_node} ({node}.west);" "\n"
+    else:  # right
+        label_node = rf" node[above, xshift=6pt, yshift=2pt, font=\sffamily\scriptsize, text=clrtext] {{{label}}}" if label else ""
+        return rf"\draw[arrow] ({node}.east) --{label_node} ++ (1.0,0);" "\n"
 
 
 def flat_title(text: str, below_of: str = "current bounding box.south",
@@ -241,10 +334,123 @@ def flat_side_label(text: str, node: str, side: str = "right",
 
 
 def flat_dim_label(text: str, node: str, side: str = "left",
-                   distance: float = 0.15) -> str:
+                   distance: float = 0.28) -> str:
     """Add a dimension annotation (e.g. '768') to a block."""
     anchor = "east" if side == "left" else "west"
     return (
         rf"\node[{side}={distance}cm of {node}, "
         rf"font=\sffamily\scriptsize, text=clrborder, anchor={anchor}] {{{text}}};" "\n"
+    )
+
+
+# ---------------------------------------------------------------------------
+# LSTM Olah-style primitives (horizontal conveyor belt)
+# ---------------------------------------------------------------------------
+
+def olah_gate_node(name: str, symbol: str, fill: str,
+                   x: float = 0, y: float = 0,
+                   relative_to: str | None = None,
+                   xshift: float = 0, yshift: float = 0) -> str:
+    """Small colored circle for LSTM gate operations (σ, tanh, ×, +)."""
+    if relative_to:
+        pos = rf"at ([xshift={xshift}cm, yshift={yshift}cm]{relative_to})"
+    else:
+        pos = rf"at ({x},{y})"
+    return (
+        rf"\node[circle, draw=clrborder!60, fill={fill}, "
+        rf"inner sep=3pt, minimum size=0.5cm, "
+        rf"font=\sffamily\scriptsize\bfseries] ({name}) {pos} {{{symbol}}};" "\n"
+    )
+
+
+def olah_cell_highway(from_name: str, to_name: str) -> str:
+    """Thick horizontal cell state line (the 'conveyor belt')."""
+    return (
+        rf"\draw[line width=2.5pt, color=clrresidual, ->, >=Stealth] "
+        rf"({from_name}.east) -- ({to_name}.west);" "\n"
+    )
+
+
+def olah_thin_arrow(from_name: str, to_name: str,
+                    from_anchor: str = "north", to_anchor: str = "south",
+                    color: str = "clrborder!70") -> str:
+    """Thin arrow for data flow inside LSTM cell."""
+    return (
+        rf"\draw[->, color={color}, line width=0.5pt] "
+        rf"({from_name}.{from_anchor}) -- ({to_name}.{to_anchor});" "\n"
+    )
+
+
+def olah_curved_arrow(from_name: str, to_name: str,
+                      bend: str = "left", color: str = "clrborder!70",
+                      angle: int = 30) -> str:
+    """Curved arrow for routing inside LSTM cell."""
+    return (
+        rf"\draw[->, color={color}, line width=0.5pt, bend {bend}={angle}] "
+        rf"({from_name}) to ({to_name});" "\n"
+    )
+
+
+def olah_label(text: str, x: float = 0, y: float = 0,
+               anchor: str = "center",
+               relative_to: str | None = None,
+               xshift: float = 0, yshift: float = 0) -> str:
+    """Small text label for LSTM diagrams."""
+    if relative_to:
+        pos = rf"at ([xshift={xshift}cm, yshift={yshift}cm]{relative_to})"
+    else:
+        pos = rf"at ({x},{y})"
+    return (
+        rf"\node[font=\sffamily\scriptsize, text=clrborder, anchor={anchor}] "
+        rf"{pos} {{{text}}};" "\n"
+    )
+
+
+# LSTM Olah gate color constants (Chris Olah blog palette)
+OLAH_SIGMA = "clrnorm!80"       # yellow/amber for sigmoid
+OLAH_TANH = "clrffn!50"         # pink/salmon for tanh
+OLAH_MULTIPLY = "clrembed!70"   # green for pointwise multiply
+OLAH_ADD = "clrresidual!50"     # blue for pointwise add
+
+
+def olah_copy_dot(name: str, relative_to: str,
+                  xshift: float = 0, yshift: float = 0) -> str:
+    """Small filled black dot for branch/copy points (Chris Olah convention)."""
+    return (
+        rf"\node[circle, fill=clrborder, minimum size=3pt, inner sep=0pt] "
+        rf"({name}) at ([xshift={xshift}cm, yshift={yshift}cm]{relative_to}) {{}};" "\n"
+    )
+
+
+def olah_bus_line(from_name: str, to_x: float, color: str = "clrborder!60") -> str:
+    """Horizontal fan-out bus line from concat point to rightmost gate tap."""
+    return (
+        rf"\draw[-, color={color}, line width=0.8pt] "
+        rf"({from_name}.east) -- ++({to_x},0);" "\n"
+    )
+
+
+def olah_branch_tap(tap_name: str, gate_name: str,
+                    color: str = "clrborder!60") -> str:
+    """Vertical branch tap arrow from bus line to gate node."""
+    return (
+        rf"\draw[->, color={color}, line width=0.5pt] "
+        rf"({tap_name}) -- ({gate_name}.south);" "\n"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Cross-attention arrow (for EncoderDecoder)
+# ---------------------------------------------------------------------------
+
+def flat_cross_attention_arrow(from_name: str, to_name: str,
+                               label: str = "",
+                               style: str = "all") -> str:
+    """Horizontal cross-attention arrow from encoder to decoder side."""
+    label_part = ""
+    if label:
+        label_part = rf" node[midway, yshift=22pt, font=\sffamily\footnotesize\bfseries, text=clrborder, fill=white, inner sep=2pt] {{{label}}}"
+    return (
+        rf"\draw[->, thick, color=clrresidual, densely dashed, line width=1pt] "
+        rf"({from_name}.east) --{label_part} ({to_name}.west);" "\n"
     )

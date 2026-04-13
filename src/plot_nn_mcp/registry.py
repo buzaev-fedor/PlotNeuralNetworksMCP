@@ -7,6 +7,7 @@ The MCP list_layer_types tool auto-derives parameter info from this registry.
 from __future__ import annotations
 
 import inspect
+import warnings
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -63,7 +64,14 @@ def coerce_params(layer_type: str, params: dict) -> dict:
             try:
                 p[key] = float(p[key]) if "." in p[key] else int(p[key])
             except ValueError:
-                pass
+                warnings.warn(
+                    f"Could not convert param {key!r}={p[key]!r} to numeric",
+                    stacklevel=2,
+                )
+    # Coerce string booleans from JSON
+    for key, val in p.items():
+        if isinstance(val, str) and val.lower() in ("true", "false"):
+            p[key] = val.lower() == "true"
     return p
 
 

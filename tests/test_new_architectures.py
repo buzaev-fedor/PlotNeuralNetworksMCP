@@ -9,7 +9,6 @@ import json
 import os
 import re
 import shutil
-import tempfile
 
 import pytest
 
@@ -31,22 +30,7 @@ from plot_nn_mcp.registry import LAYER_REGISTRY, coerce_params, get_layer_metada
 from plot_nn_mcp.server import generate_diagram, generate_preset
 from plot_nn_mcp.compiler import write_and_compile
 
-
-@pytest.fixture
-def work_dir():
-    d = tempfile.mkdtemp(prefix="test_plotnn_new_")
-    yield d
-    shutil.rmtree(d, ignore_errors=True)
-
-
-def _assert_valid_latex(tex: str):
-    assert r"\documentclass" in tex
-    assert r"\begin{document}" in tex
-    assert r"\end{document}" in tex
-
-
-def _parse_json(s: str) -> dict:
-    return json.loads(s)
+from conftest import assert_valid_latex, parse_json
 
 
 # ===========================================================================
@@ -324,7 +308,7 @@ class TestTransformerBlocks:
 class TestTransformerPreset:
     def test_valid_latex(self):
         tex = "".join(transformer(n_enc=1, n_dec=1))
-        _assert_valid_latex(tex)
+        assert_valid_latex(tex)
 
     def test_has_encoder_and_decoder(self):
         tex = "".join(transformer(n_enc=2, n_dec=2))
@@ -359,7 +343,7 @@ class TestTransformerPreset:
 class TestBertPreset:
     def test_valid_latex(self):
         tex = "".join(bert(n_layers=1))
-        _assert_valid_latex(tex)
+        assert_valid_latex(tex)
 
     def test_has_segment_embedding(self):
         tex = "".join(bert(n_layers=1))
@@ -385,7 +369,7 @@ class TestBertPreset:
 class TestGptPreset:
     def test_valid_latex(self):
         tex = "".join(gpt(n_layers=1))
-        _assert_valid_latex(tex)
+        assert_valid_latex(tex)
 
     def test_has_masked_mha(self):
         tex = "".join(gpt(n_layers=1))
@@ -411,7 +395,7 @@ class TestGptPreset:
 class TestVitPreset:
     def test_valid_latex(self):
         tex = "".join(vit(n_layers=1))
-        _assert_valid_latex(tex)
+        assert_valid_latex(tex)
 
     def test_has_patch_embedding(self):
         tex = "".join(vit(n_layers=1, patch_size=16))
@@ -438,7 +422,7 @@ class TestVitPreset:
 class TestPinnPreset:
     def test_valid_latex(self):
         tex = "".join(pinn())
-        _assert_valid_latex(tex)
+        assert_valid_latex(tex)
 
     def test_has_input(self):
         tex = "".join(pinn())
@@ -470,7 +454,7 @@ class TestPinnPreset:
 class TestFnoPreset:
     def test_valid_latex(self):
         tex = "".join(fno())
-        _assert_valid_latex(tex)
+        assert_valid_latex(tex)
 
     def test_has_lifting_and_projection(self):
         tex = "".join(fno())
@@ -504,41 +488,41 @@ class TestPresetIntegration:
             assert name in PRESETS
 
     def test_generate_preset_transformer(self):
-        result = _parse_json(generate_preset("transformer",
+        result = parse_json(generate_preset("transformer",
                              params={"n_enc": 1, "n_dec": 1},
                              compile_pdf=False))
         assert "tex_source" in result
-        _assert_valid_latex(result["tex_source"])
+        assert_valid_latex(result["tex_source"])
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
     def test_generate_preset_bert_with_params(self):
-        result = _parse_json(generate_preset("bert",
+        result = parse_json(generate_preset("bert",
                              params={"n_layers": 2, "d_model": 256},
                              compile_pdf=False))
         assert "256" in result["tex_source"]
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
     def test_generate_preset_gpt(self):
-        result = _parse_json(generate_preset("gpt",
+        result = parse_json(generate_preset("gpt",
                              params={"n_layers": 1},
                              compile_pdf=False))
         assert "Masked MHA" in result["tex_source"]
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
     def test_generate_preset_vit(self):
-        result = _parse_json(generate_preset("vit",
+        result = parse_json(generate_preset("vit",
                              params={"n_layers": 1, "patch_size": 32},
                              compile_pdf=False))
         assert "Patch 32x32" in result["tex_source"]
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
     def test_generate_preset_pinn(self):
-        result = _parse_json(generate_preset("pinn", compile_pdf=False))
+        result = parse_json(generate_preset("pinn", compile_pdf=False))
         assert r"$\mathcal{L}_d$" in result["tex_source"]
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
     def test_generate_preset_fno(self):
-        result = _parse_json(generate_preset("fno",
+        result = parse_json(generate_preset("fno",
                              params={"n_layers": 2},
                              compile_pdf=False))
         assert "Spectral Conv" in result["tex_source"]
@@ -546,8 +530,8 @@ class TestPresetIntegration:
 
     def test_generate_preset_old_presets_still_work(self):
         for name in ("simple_cnn", "vgg16", "unet", "resnet"):
-            result = _parse_json(generate_preset(name, compile_pdf=False))
-            _assert_valid_latex(result["tex_source"])
+            result = parse_json(generate_preset(name, compile_pdf=False))
+            assert_valid_latex(result["tex_source"])
             shutil.rmtree(result["work_dir"], ignore_errors=True)
 
     def test_all_new_presets_valid_latex(self):
@@ -560,8 +544,8 @@ class TestPresetIntegration:
             "fno": {"n_layers": 1},
         }
         for name, params in configs.items():
-            result = _parse_json(generate_preset(name, params=params, compile_pdf=False))
-            _assert_valid_latex(result["tex_source"])
+            result = parse_json(generate_preset(name, params=params, compile_pdf=False))
+            assert_valid_latex(result["tex_source"])
             shutil.rmtree(result["work_dir"], ignore_errors=True)
 
 
@@ -573,47 +557,47 @@ class TestNewLayersViaDiagram:
     def test_dense_layer(self):
         layers = [{"type": "Dense", "name": "d1", "n_units": 128,
                    "offset": "(0,0,0)", "to": "(0,0,0)"}]
-        result = _parse_json(generate_diagram(layers, compile_pdf=False))
+        result = parse_json(generate_diagram(layers, compile_pdf=False))
         assert r"\FcColor" in result["tex_source"]
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
     def test_norm_layer(self):
         layers = [{"type": "Norm", "name": "n1", "offset": "(0,0,0)", "to": "(0,0,0)"}]
-        result = _parse_json(generate_diagram(layers, compile_pdf=False))
+        result = parse_json(generate_diagram(layers, compile_pdf=False))
         assert r"\NormColor" in result["tex_source"]
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
     def test_embed_layer(self):
         layers = [{"type": "Embed", "name": "e1", "d_model": 768,
                    "offset": "(0,0,0)", "to": "(0,0,0)"}]
-        result = _parse_json(generate_diagram(layers, compile_pdf=False))
+        result = parse_json(generate_diagram(layers, compile_pdf=False))
         assert r"\EmbedColor" in result["tex_source"]
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
     def test_multi_head_attn_layer(self):
         layers = [{"type": "MultiHeadAttn", "name": "mha1", "num_heads": 12,
                    "offset": "(0,0,0)", "to": "(0,0,0)"}]
-        result = _parse_json(generate_diagram(layers, compile_pdf=False))
+        result = parse_json(generate_diagram(layers, compile_pdf=False))
         assert "PartitionedBox" in result["tex_source"]
         assert "nparts=12" in result["tex_source"]
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
     def test_multiply_layer(self):
         layers = [{"type": "Multiply", "name": "m1", "offset": "(0,0,0)", "to": "(0,0,0)"}]
-        result = _parse_json(generate_diagram(layers, compile_pdf=False))
+        result = parse_json(generate_diagram(layers, compile_pdf=False))
         assert r"$\times$" in result["tex_source"]
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
     def test_spectral_conv_layer(self):
         layers = [{"type": "SpectralConv", "name": "sc1", "modes": 32,
                    "offset": "(0,0,0)", "to": "(0,0,0)"}]
-        result = _parse_json(generate_diagram(layers, compile_pdf=False))
+        result = parse_json(generate_diagram(layers, compile_pdf=False))
         assert r"\SpectralColor" in result["tex_source"]
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
     def test_lifting_layer(self):
         layers = [{"type": "Lifting", "name": "l1", "offset": "(0,0,0)", "to": "(0,0,0)"}]
-        result = _parse_json(generate_diagram(layers, compile_pdf=False))
+        result = parse_json(generate_diagram(layers, compile_pdf=False))
         assert r"\LiftColor" in result["tex_source"]
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 

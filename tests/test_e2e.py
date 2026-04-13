@@ -13,7 +13,6 @@ import json
 import os
 import re
 import shutil
-import tempfile
 
 import pytest
 
@@ -29,37 +28,17 @@ from plot_nn_mcp.registry import LAYER_REGISTRY, coerce_params, get_layer_metada
 from plot_nn_mcp.compiler import compile_tex, copy_layers_to, prepare_work_dir, write_and_compile
 from plot_nn_mcp.presets import PRESETS, simple_cnn, vgg16, unet, resnet
 
+from conftest import assert_valid_latex, parse_json
+
 
 # ===========================================================================
 # Helpers
 # ===========================================================================
 
-@pytest.fixture
-def work_dir():
-    d = tempfile.mkdtemp(prefix="test_plotnn_")
-    yield d
-    shutil.rmtree(d, ignore_errors=True)
-
-
 def _full_arch(*layer_strs: str) -> str:
     """Wrap layer strings in a complete document for validation."""
     parts = [to_head("."), to_cor(), to_begin(), *layer_strs, to_end()]
     return "".join(parts)
-
-
-def _assert_valid_latex(tex: str):
-    """Basic structural checks on generated LaTeX."""
-    assert r"\documentclass" in tex
-    assert r"\begin{document}" in tex
-    assert r"\begin{tikzpicture}" in tex
-    assert r"\end{tikzpicture}" in tex
-    assert r"\end{document}" in tex
-
-
-def _parse_json(result_str: str) -> dict:
-    data = json.loads(result_str)
-    assert isinstance(data, dict)
-    return data
 
 
 # ===========================================================================
@@ -349,7 +328,7 @@ class TestDocumentStructure:
         to_generate(arch, path)
         assert os.path.exists(path)
         content = open(path).read()
-        _assert_valid_latex(content)
+        assert_valid_latex(content)
 
     def test_to_generate_file_contains_all_parts(self, work_dir):
         path = os.path.join(work_dir, "test.tex")
@@ -372,7 +351,7 @@ class TestDocumentStructure:
 
     def test_empty_arch_produces_valid_document(self):
         tex = _full_arch()
-        _assert_valid_latex(tex)
+        assert_valid_latex(tex)
 
 
 # ===========================================================================
@@ -447,7 +426,7 @@ class TestBlocksE2E:
         path = os.path.join(work_dir, "test.tex")
         to_generate(arch, path)
         content = open(path).read()
-        _assert_valid_latex(content)
+        assert_valid_latex(content)
         assert "ccr_b1" in content
 
     def test_chained_blocks(self):
@@ -532,16 +511,14 @@ class TestRegistry:
 
 class TestCompiler:
     def test_prepare_work_dir_temp(self):
-        d, is_temp = prepare_work_dir(None)
+        d = prepare_work_dir(None)
         assert os.path.isdir(d)
-        assert is_temp is True
         shutil.rmtree(d)
 
     def test_prepare_work_dir_custom(self, work_dir):
         custom = os.path.join(work_dir, "subdir", "nested")
-        d, is_temp = prepare_work_dir(custom)
+        d = prepare_work_dir(custom)
         assert os.path.isdir(d)
-        assert is_temp is False
         assert d == custom
 
     def test_copy_layers_creates_all_files(self, work_dir):
@@ -562,7 +539,7 @@ class TestCompiler:
         result = write_and_compile(arch, work_dir, "test", do_compile=False)
         assert result["status"] == "tex_generated"
         assert os.path.exists(result["tex_path"])
-        _assert_valid_latex(result["tex_source"])
+        assert_valid_latex(result["tex_source"])
 
     def test_write_and_compile_creates_tex_file(self, work_dir):
         arch = [to_head("."), to_cor(), to_begin(), to_Conv("c1", 256, 64), to_end()]
@@ -584,8 +561,8 @@ class TestCompiler:
         to_generate(arch, tex_path)
         # compile_tex may or may not work depending on pdflatex availability
         # but it should not raise
-        result = compile_tex(tex_path, work_dir)
-        assert result is None or result.endswith(".pdf")
+        pdf_path, error = compile_tex(tex_path, work_dir)
+        assert pdf_path is None or pdf_path.endswith(".pdf")
 
     def test_write_and_compile_with_compile_flag(self, work_dir):
         arch = [to_head("."), to_cor(), to_begin(), to_Conv("c1", 256, 64), to_end()]
@@ -606,8 +583,8 @@ class TestGenerateDiagramE2E:
     def test_single_conv_layer(self):
         layers = [{"type": "Conv", "name": "c1", "s_filer": 256, "n_filer": 64,
                    "offset": "(0,0,0)", "to": "(0,0,0)", "height": 40, "depth": 40, "width": 2}]
-        result = _parse_json(generate_diagram(layers, compile_pdf=False))
-        _assert_valid_latex(result["tex_source"])
+        result = parse_json(generate_diagram(layers, compile_pdf=False))
+        assert_valid_latex(result["tex_source"])
         assert "c1" in result["tex_source"]
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
@@ -619,7 +596,7 @@ class TestGenerateDiagramE2E:
             {"type": "SoftMax", "name": "sm", "offset": "(2,0,0)", "to": "(c2-east)"},
         ]
         conns = [{"from": "p1", "to": "c2"}, {"from": "c2", "to": "sm"}]
-        result = _parse_json(generate_diagram(layers, conns, compile_pdf=False))
+        result = parse_json(generate_diagram(layers, conns, compile_pdf=False))
         tex = result["tex_source"]
         for name in ("c1", "p1", "c2", "sm"):
             assert name in tex
@@ -632,20 +609,20 @@ class TestGenerateDiagramE2E:
             {"type": "Conv", "name": "c3", "offset": "(1,0,0)", "to": "(c2-east)"},
         ]
         skips = [{"from": "c1", "to": "c3", "pos": 1.5}]
-        result = _parse_json(generate_diagram(layers, skip_connections=skips, compile_pdf=False))
+        result = parse_json(generate_diagram(layers, skip_connections=skips, compile_pdf=False))
         assert "copyconnection" in result["tex_source"]
         assert "1.5" in result["tex_source"]
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
     def test_diagram_output_to_custom_dir(self, work_dir):
         layers = [{"type": "Conv", "name": "c1", "offset": "(0,0,0)", "to": "(0,0,0)"}]
-        result = _parse_json(generate_diagram(layers, output_dir=work_dir, compile_pdf=False))
+        result = parse_json(generate_diagram(layers, output_dir=work_dir, compile_pdf=False))
         assert result["work_dir"] == work_dir
         assert os.path.exists(result["tex_path"])
 
     def test_diagram_custom_filename(self, work_dir):
         layers = [{"type": "Conv", "name": "c1", "offset": "(0,0,0)", "to": "(0,0,0)"}]
-        result = _parse_json(generate_diagram(layers, output_dir=work_dir,
+        result = parse_json(generate_diagram(layers, output_dir=work_dir,
                                               filename="my_net", compile_pdf=False))
         assert "my_net.tex" in result["tex_path"]
 
@@ -654,14 +631,14 @@ class TestGenerateDiagramE2E:
             {"type": "Conv", "name": "c1", "offset": "(0,0,0)", "to": "(0,0,0)"},
             {"type": "Sum", "name": "s1", "offset": "(1,0,0)", "to": "(c1-east)"},
         ]
-        result = _parse_json(generate_diagram(layers, compile_pdf=False))
+        result = parse_json(generate_diagram(layers, compile_pdf=False))
         assert "Ball=" in result["tex_source"]
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
     def test_diagram_convconvrelu_with_list_params(self):
         layers = [{"type": "ConvConvRelu", "name": "ccr1", "n_filer": [64, 128],
                    "width": [2, 3], "offset": "(0,0,0)", "to": "(0,0,0)"}]
-        result = _parse_json(generate_diagram(layers, compile_pdf=False))
+        result = parse_json(generate_diagram(layers, compile_pdf=False))
         assert "RightBandedBox" in result["tex_source"]
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
@@ -673,14 +650,14 @@ class TestGenerateDiagramE2E:
     def test_diagram_does_not_mutate_input(self):
         layers = [{"type": "Conv", "name": "c1", "offset": "(0,0,0)", "to": "(0,0,0)"}]
         layers_copy = [dict(l) for l in layers]
-        result = _parse_json(generate_diagram(layers, compile_pdf=False))
+        result = parse_json(generate_diagram(layers, compile_pdf=False))
         # Original input should still have "type"
         assert layers[0].get("type") == "Conv"
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
     def test_diagram_layers_dir_copied(self):
         layers = [{"type": "Conv", "name": "c1", "offset": "(0,0,0)", "to": "(0,0,0)"}]
-        result = _parse_json(generate_diagram(layers, compile_pdf=False))
+        result = parse_json(generate_diagram(layers, compile_pdf=False))
         layers_dir = os.path.join(result["work_dir"], "layers")
         assert os.path.isdir(layers_dir)
         shutil.rmtree(result["work_dir"], ignore_errors=True)
@@ -695,7 +672,7 @@ class TestPresetsE2E:
         for name, builder in PRESETS.items():
             arch = builder()
             tex = "".join(arch)
-            _assert_valid_latex(tex)
+            assert_valid_latex(tex)
 
     def test_simple_cnn_has_3_conv_3_pool_1_softmax(self):
         tex = "".join(simple_cnn())
@@ -733,26 +710,26 @@ class TestPresetsE2E:
         assert "copyconnection" in tex
 
     def test_generate_preset_returns_json(self):
-        result = _parse_json(generate_preset("simple_cnn", compile_pdf=False))
+        result = parse_json(generate_preset("simple_cnn", compile_pdf=False))
         assert result["preset"] == "simple_cnn"
         assert "tex_source" in result
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
     def test_generate_preset_custom_output(self, work_dir):
-        result = _parse_json(generate_preset("vgg16", output_dir=work_dir,
+        result = parse_json(generate_preset("vgg16", output_dir=work_dir,
                                              filename="my_vgg", compile_pdf=False))
         assert "my_vgg.tex" in result["tex_path"]
         assert os.path.exists(result["tex_path"])
 
     def test_generate_preset_unknown_returns_error(self):
-        result = _parse_json(generate_preset("nonexistent", compile_pdf=False))
+        result = parse_json(generate_preset("nonexistent", compile_pdf=False))
         assert "error" in result
         assert "available_presets" in result
 
     def test_generate_latex_snippet_no_file_written(self):
         layers = [{"type": "Conv", "name": "c1", "offset": "(0,0,0)", "to": "(0,0,0)"}]
         result = generate_latex_snippet(layers)
-        _assert_valid_latex(result)
+        assert_valid_latex(result)
         assert isinstance(result, str)  # not JSON
 
     def test_presets_dict_matches_functions(self):
@@ -798,12 +775,12 @@ class TestEdgeCases:
             {"type": "SoftMax", "name": "out", "offset": "(2,0,0)", "to": "(ccr1-east)"},
         ]
         conns = [{"from": "p1", "to": "ccr1"}, {"from": "ccr1", "to": "out"}]
-        result = _parse_json(generate_diagram(layers, conns, output_dir=work_dir,
+        result = parse_json(generate_diagram(layers, conns, output_dir=work_dir,
                                               compile_pdf=False))
         # Read back and verify
         content = open(result["tex_path"]).read()
         assert content == result["tex_source"]
-        _assert_valid_latex(content)
+        assert_valid_latex(content)
 
     def test_all_layer_types_in_single_diagram(self):
         layers = [
@@ -817,7 +794,7 @@ class TestEdgeCases:
             {"type": "SoftMax", "name": "sm1", "offset": "(1,0,0)", "to": "(csm1-east)"},
             {"type": "Sum", "name": "s1", "offset": "(1,0,0)", "to": "(sm1-east)"},
         ]
-        result = _parse_json(generate_diagram(layers, compile_pdf=False))
+        result = parse_json(generate_diagram(layers, compile_pdf=False))
         tex = result["tex_source"]
         assert "Box=" in tex
         assert "RightBandedBox=" in tex
@@ -830,7 +807,7 @@ class TestEdgeCases:
                     "to": f"(c{i-1}-east)" if i > 0 else "(0,0,0)"}
                    for i in range(n)]
         conns = [{"from": f"c{i}", "to": f"c{i+1}"} for i in range(n - 1)]
-        result = _parse_json(generate_diagram(layers, conns, compile_pdf=False))
+        result = parse_json(generate_diagram(layers, conns, compile_pdf=False))
         tex = result["tex_source"]
         for i in range(n):
             assert f"c{i}" in tex
@@ -840,11 +817,11 @@ class TestEdgeCases:
         layers = [{"type": "Conv", "name": "c1", "offset": "(0,0,0)", "to": "(0,0,0)"}]
         arch = _build_arch([dict(l) for l in layers], connections=[], skip_connections=[])
         tex = "".join(arch)
-        _assert_valid_latex(tex)
+        assert_valid_latex(tex)
 
     def test_list_layer_types_is_valid_json(self):
         from plot_nn_mcp.server import list_layer_types
-        result = _parse_json(list_layer_types())
+        result = parse_json(list_layer_types())
         assert "layers" in result
         assert "blocks" in result
         # All registered types should appear
@@ -874,7 +851,7 @@ class TestEdgeCases:
 
     def test_generate_diagram_result_has_required_keys(self):
         layers = [{"type": "Conv", "name": "c1", "offset": "(0,0,0)", "to": "(0,0,0)"}]
-        result = _parse_json(generate_diagram(layers, compile_pdf=False))
+        result = parse_json(generate_diagram(layers, compile_pdf=False))
         assert "tex_path" in result
         assert "work_dir" in result
         assert "tex_source" in result
@@ -896,9 +873,9 @@ class TestEdgeCases:
 
     def test_multiple_diagrams_to_same_dir(self, work_dir):
         layers = [{"type": "Conv", "name": "c1", "offset": "(0,0,0)", "to": "(0,0,0)"}]
-        r1 = _parse_json(generate_diagram(layers, output_dir=work_dir,
+        r1 = parse_json(generate_diagram(layers, output_dir=work_dir,
                                           filename="net1", compile_pdf=False))
-        r2 = _parse_json(generate_diagram(
+        r2 = parse_json(generate_diagram(
             [{"type": "Pool", "name": "p1", "offset": "(0,0,0)", "to": "(0,0,0)"}],
             output_dir=work_dir, filename="net2", compile_pdf=False))
         assert os.path.exists(r1["tex_path"])

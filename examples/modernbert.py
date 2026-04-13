@@ -25,7 +25,7 @@ from plot_nn_mcp.pycore.tikzeng import (
 
 def block_ModernBERTLayer(
     name: str,
-    botton: str,
+    bottom: str,
     top: str,
     d_model: int = 768,
     num_heads: int = 12,
@@ -50,9 +50,9 @@ def block_ModernBERTLayer(
 
     return [
         # ── Pre-LN → Attention ──
-        to_Norm(name=n1, offset=offset, to=f"({botton}-east)",
+        to_Norm(name=n1, offset=offset, to=f"({bottom}-east)",
                 width=0.3, height=h, depth=d, caption=" "),
-        to_connection(botton, n1),
+        to_connection(bottom, n1),
 
         _render_partitioned_box(
             name=at, fill=attn_color, offset="(1.2,0,0)", to=f"({n1}-east)",
@@ -64,7 +64,7 @@ def block_ModernBERTLayer(
         # ── Residual Add ──
         to_Sum(name=r1, offset="(1.2,0,0)", to=f"({at}-east)", radius=1.5, opacity=0.6),
         to_connection(at, r1),
-        to_skip(botton, r1, pos=1.25),
+        to_skip(bottom, r1, pos=1.25),
 
         # ── Pre-LN → GeGLU FFN ──
         to_Norm(name=n2, offset="(0.8,0,0)", to=f"({r1}-east)",

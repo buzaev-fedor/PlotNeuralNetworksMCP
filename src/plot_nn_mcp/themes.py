@@ -2,11 +2,12 @@
 Color theme system for neural network architecture diagrams.
 
 Each theme maps semantic roles to TikZ-compatible color definitions.
-Themes produce \definecolor{...}{HTML}{...} blocks for use with TikZ nodes.
+Themes produce ``\\definecolor{...}{HTML}{...}`` blocks for use with TikZ nodes.
 """
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 
 
@@ -105,6 +106,42 @@ THEMES: dict[str, Theme] = {
         group_frame="999999",
         group_fill="F0F0F0",
     ),
+    "arxiv": Theme(
+        name="arxiv",
+        attention="B8D4E3",    # light cyan (Vaswani-style)
+        attention_alt="D4E8F0", # lighter cyan
+        ffn="F5D0A9",          # light orange
+        norm="FFF3C4",         # light yellow
+        embed="C8E6C9",        # light green
+        residual="90CAF9",     # soft blue
+        output="E1BEE7",       # soft lavender
+        dense="90CAF9",
+        spectral="B2EBF2",    # pale cyan
+        physics="FFCCBC",      # pale orange
+        background="FFFFFF",
+        border="424242",       # gray-800
+        text="212121",         # gray-900
+        group_frame="9E9E9E",  # gray-500
+        group_fill="FAFAFA",   # gray-50
+    ),
+    "nature": Theme(
+        name="nature",
+        attention="7B9EB2",    # steel blue (restrained)
+        attention_alt="A3C1D0",
+        ffn="C4956A",          # warm brown
+        norm="D4C5A0",         # khaki
+        embed="8BAA7F",        # olive green
+        residual="7B9EB2",     # steel blue
+        output="9B8EAD",       # muted purple
+        dense="7B9EB2",
+        spectral="7FB5B0",     # sage teal
+        physics="C4956A",
+        background="FFFFFF",
+        border="3C3C3C",
+        text="2B2B2B",
+        group_frame="8C8C8C",
+        group_fill="F7F7F7",
+    ),
 }
 
 
@@ -116,13 +153,10 @@ def get_theme(name: str) -> Theme:
 
 def theme_to_tikz_colors(theme: Theme) -> str:
     """Generate TikZ \\definecolor commands for all semantic roles."""
-    roles = [
-        "attention", "attention_alt", "ffn", "norm", "embed", "residual",
-        "output", "dense", "spectral", "physics", "background", "border",
-        "text", "group_frame", "group_fill",
-    ]
     lines = []
-    for role in roles:
-        hex_color = getattr(theme, role)
-        lines.append(rf"\definecolor{{clr{role}}}{{HTML}}{{{hex_color}}}")
+    for f in dataclasses.fields(theme):
+        if f.name == "name":
+            continue
+        hex_color = getattr(theme, f.name)
+        lines.append(rf"\definecolor{{clr{f.name}}}{{HTML}}{{{hex_color}}}")
     return "\n".join(lines) + "\n"

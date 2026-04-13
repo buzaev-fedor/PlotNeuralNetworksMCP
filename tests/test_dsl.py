@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import tempfile
 
 import pytest
 
@@ -22,18 +21,7 @@ from plot_nn_mcp.dsl import (
 )
 from plot_nn_mcp.server import generate_architecture, list_themes
 
-
-@pytest.fixture
-def work_dir():
-    d = tempfile.mkdtemp(prefix="test_dsl_")
-    yield d
-    shutil.rmtree(d, ignore_errors=True)
-
-
-def _assert_valid_latex(tex: str):
-    assert r"\documentclass" in tex
-    assert r"\begin{document}" in tex
-    assert r"\end{document}" in tex
+from conftest import assert_valid_latex
 
 
 # ===========================================================================
@@ -66,8 +54,8 @@ class TestThemes:
         assert r"\definecolor{clrnorm}" in tikz
         assert "{HTML}" in tikz
 
-    def test_four_themes_exist(self):
-        assert set(THEMES.keys()) == {"modern", "paper", "vibrant", "monochrome"}
+    def test_all_themes_exist(self):
+        assert set(THEMES.keys()) == {"modern", "paper", "vibrant", "monochrome", "arxiv", "nature"}
 
     def test_colors_are_6_char_hex(self):
         for name, theme in THEMES.items():
@@ -221,7 +209,7 @@ class TestArchitectureRender:
         arch.add(Embedding(768))
         arch.add(ClassificationHead())
         tex = arch.render()
-        _assert_valid_latex(tex)
+        assert_valid_latex(tex)
         assert "Embedding" in tex
         assert "Output" in tex
 
@@ -232,7 +220,7 @@ class TestArchitectureRender:
             arch.add(TransformerBlock(attention="self", ffn="gelu", heads=12))
         arch.add(ClassificationHead())
         tex = arch.render(show_n=2)
-        _assert_valid_latex(tex)
+        assert_valid_latex(tex)
         assert "Self-Attention" in tex
         assert "FFN (GeLU)" in tex
         assert "LayerNorm" in tex
@@ -244,7 +232,7 @@ class TestArchitectureRender:
         arch.add(ConvBlock(filters=64))
         arch.add(ClassificationHead())
         tex = arch.render()
-        _assert_valid_latex(tex)
+        assert_valid_latex(tex)
         assert "Conv3" in tex
 
     def test_modernbert_pattern(self):
@@ -255,7 +243,7 @@ class TestArchitectureRender:
             arch.add(TransformerBlock(attention=attn, ffn="geglu", heads=12))
         arch.add(ClassificationHead())
         tex = arch.render(show_n=3)
-        _assert_valid_latex(tex)
+        assert_valid_latex(tex)
         assert "Local Attention" in tex
         assert "Global Attention" in tex
         assert "GeGLU" in tex
@@ -278,7 +266,7 @@ class TestArchitectureRender:
             arch.add(TransformerBlock())
             arch.add(ClassificationHead())
             tex = arch.render()
-            _assert_valid_latex(tex)
+            assert_valid_latex(tex)
 
     def test_render_to_file(self, work_dir):
         arch = Architecture("Test", theme="modern")
@@ -288,7 +276,7 @@ class TestArchitectureRender:
         arch.render_to_file(path)
         assert os.path.exists(path)
         content = open(path).read()
-        _assert_valid_latex(content)
+        assert_valid_latex(content)
 
     def test_fourier_block(self):
         arch = Architecture("FNO", theme="modern")
@@ -297,8 +285,8 @@ class TestArchitectureRender:
         arch.add(FourierBlock(modes=16))
         arch.add(ClassificationHead())
         tex = arch.render()
-        _assert_valid_latex(tex)
-        assert "Fourier" in tex
+        assert_valid_latex(tex)
+        assert "Spectral Conv" in tex
 
     def test_custom_block(self):
         arch = Architecture("Custom", theme="modern")
@@ -364,7 +352,7 @@ class TestGenerateArchitectureTool:
         ]
         result = json.loads(generate_architecture("Test", layers, compile_pdf=False))
         assert "tex_source" in result
-        _assert_valid_latex(result["tex_source"])
+        assert_valid_latex(result["tex_source"])
         shutil.rmtree(result["work_dir"], ignore_errors=True)
 
     def test_with_theme(self):
@@ -427,13 +415,13 @@ class TestEdgeCases:
     def test_empty_architecture(self):
         arch = Architecture("Empty", theme="modern")
         tex = arch.render()
-        _assert_valid_latex(tex)
+        assert_valid_latex(tex)
 
     def test_single_embedding(self):
         arch = Architecture("Single", theme="modern")
         arch.add(Embedding(256))
         tex = arch.render()
-        _assert_valid_latex(tex)
+        assert_valid_latex(tex)
         assert "Embedding" in tex
 
     def test_many_layers_performance(self):
@@ -444,7 +432,7 @@ class TestEdgeCases:
         arch.add(ClassificationHead())
         # Should render without error, showing only show_n blocks
         tex = arch.render(show_n=3)
-        _assert_valid_latex(tex)
+        assert_valid_latex(tex)
         assert r"\times100" in tex
         assert tex.count("Self-Attention") == 3
 
@@ -456,4 +444,4 @@ class TestEdgeCases:
         arch.add(TransformerBlock(attention="self"))
         arch.add(ClassificationHead())
         tex = arch.render()
-        _assert_valid_latex(tex)
+        assert_valid_latex(tex)
