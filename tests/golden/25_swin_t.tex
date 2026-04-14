@@ -1,0 +1,212 @@
+\documentclass[border=15pt, tikz]{standalone}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta, decorations.pathreplacing, calc, fit}
+\definecolor{clrattention}{HTML}{45B7D1}
+\definecolor{clrattention_alt}{HTML}{96E6F0}
+\definecolor{clrffn}{HTML}{F97068}
+\definecolor{clrnorm}{HTML}{FFD93D}
+\definecolor{clrembed}{HTML}{6BCB77}
+\definecolor{clrresidual}{HTML}{4D96FF}
+\definecolor{clroutput}{HTML}{C084FC}
+\definecolor{clrspectral}{HTML}{22D3EE}
+\definecolor{clrphysics}{HTML}{FB923C}
+\definecolor{clrborder}{HTML}{334155}
+\definecolor{clrtext}{HTML}{1E293B}
+\definecolor{clrgroup_frame}{HTML}{94A3B8}
+\definecolor{clrgroup_fill}{HTML}{F1F5F9}
+\begin{document}
+\begin{tikzpicture}[
+    >=Stealth,
+    every node/.style={font=\sffamily},
+    block/.style={draw=clrborder, rounded corners=4pt, minimum width=3.8cm,
+                  minimum height=0.85cm, font=\sffamily\small\bfseries,
+                  text=clrtext, line width=0.6pt},
+    arrow/.style={->, thick, color=clrborder, line width=0.8pt},
+    skiparrow/.style={->, thick, color=clrresidual, line width=0.8pt, rounded corners=3pt},
+    label/.style={font=\sffamily\scriptsize, text=clrtext},
+    subtitle/.style={font=\sffamily\footnotesize, text=clrtext},
+]
+\node[block, fill=clrembed!85, minimum width=4.0cm, minimum height=0.9cm, text=clrtext] (n_1) at (0,0) {Patch Partition + Linear Embed};
+\node[above=0.6cm of n_1, inner sep=0, minimum height=0] (n_2_rule) {};
+\draw[color=clrgroup_frame!50, line width=0.4pt] ([xshift=-2.2cm]n_2_rule.center) -- ([xshift=2.2cm]n_2_rule.center);
+\node[above=4pt of n_2_rule, font=\sffamily\normalsize\bfseries, text=clrborder] (n_2) {Stage 1};
+\node[inner sep=0, minimum size=0, above=0.4cm of n_2] (res_entry_3) {};
+\node[block, fill=clrnorm!85, minimum width=3.0cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_3] (n_4) {LayerNorm};
+\node[block, fill=clrattention!85, minimum width=4.2cm, minimum height=0.95cm, text=clrtext, above=0.4cm of n_4] (n_5) {W-MSA (regular)};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_5] (add_6) {+};
+\node[inner sep=0, minimum size=0, above=0.4cm of add_6] (res_entry_7) {};
+\node[block, fill=clrnorm!85, minimum width=3.0cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_7] (n_8) {LayerNorm};
+\node[block, fill=clrffn!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext, above=0.4cm of n_8] (n_9) {MLP};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_9] (add_10) {+};
+\node[inner sep=0, minimum size=0, above=0.4cm of add_10] (res_entry_11) {};
+\node[block, fill=clrnorm!85, minimum width=3.0cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_11] (n_12) {LayerNorm};
+\node[block, fill=clrattention!85, minimum width=4.2cm, minimum height=0.95cm, text=clrtext, above=0.4cm of n_12] (n_13) {SW-MSA (shifted)};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_13] (add_14) {+};
+\node[inner sep=0, minimum size=0, above=0.4cm of add_14] (res_entry_15) {};
+\node[block, fill=clrnorm!85, minimum width=3.0cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_15] (n_16) {LayerNorm};
+\node[block, fill=clrffn!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext, above=0.4cm of n_16] (n_17) {MLP};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_17] (add_18) {+};
+\node[block, fill=clrembed!85, minimum width=3.6cm, minimum height=0.7cm, text=clrtext, above=0.4cm of add_18] (n_19) {Patch Merging (2x downsample)};
+\node[above=0.6cm of n_19, inner sep=0, minimum height=0] (n_20_rule) {};
+\draw[color=clrgroup_frame!50, line width=0.4pt] ([xshift=-2.2cm]n_20_rule.center) -- ([xshift=2.2cm]n_20_rule.center);
+\node[above=4pt of n_20_rule, font=\sffamily\normalsize\bfseries, text=clrborder] (n_20) {Stage 2};
+\node[inner sep=0, minimum size=0, above=0.4cm of n_20] (res_entry_21) {};
+\node[block, fill=clrnorm!85, minimum width=3.0cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_21] (n_22) {LayerNorm};
+\node[block, fill=clrattention!85, minimum width=4.2cm, minimum height=0.95cm, text=clrtext, above=0.4cm of n_22] (n_23) {W-MSA (regular)};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_23] (add_24) {+};
+\node[inner sep=0, minimum size=0, above=0.4cm of add_24] (res_entry_25) {};
+\node[block, fill=clrnorm!85, minimum width=3.0cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_25] (n_26) {LayerNorm};
+\node[block, fill=clrffn!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext, above=0.4cm of n_26] (n_27) {MLP};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_27] (add_28) {+};
+\node[inner sep=0, minimum size=0, above=0.4cm of add_28] (res_entry_29) {};
+\node[block, fill=clrnorm!85, minimum width=3.0cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_29] (n_30) {LayerNorm};
+\node[block, fill=clrattention!85, minimum width=4.2cm, minimum height=0.95cm, text=clrtext, above=0.4cm of n_30] (n_31) {SW-MSA (shifted)};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_31] (add_32) {+};
+\node[inner sep=0, minimum size=0, above=0.4cm of add_32] (res_entry_33) {};
+\node[block, fill=clrnorm!85, minimum width=3.0cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_33] (n_34) {LayerNorm};
+\node[block, fill=clrffn!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext, above=0.4cm of n_34] (n_35) {MLP};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_35] (add_36) {+};
+\node[block, fill=clrembed!85, minimum width=3.6cm, minimum height=0.7cm, text=clrtext, above=0.4cm of add_36] (n_37) {Patch Merging (2x downsample)};
+\node[above=0.6cm of n_37, inner sep=0, minimum height=0] (n_38_rule) {};
+\draw[color=clrgroup_frame!50, line width=0.4pt] ([xshift=-2.2cm]n_38_rule.center) -- ([xshift=2.2cm]n_38_rule.center);
+\node[above=4pt of n_38_rule, font=\sffamily\normalsize\bfseries, text=clrborder] (n_38) {Stage 3};
+\node[inner sep=0, minimum size=0, above=0.4cm of n_38] (res_entry_39) {};
+\node[block, fill=clrnorm!85, minimum width=3.0cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_39] (n_40) {LayerNorm};
+\node[block, fill=clrattention!85, minimum width=4.2cm, minimum height=0.95cm, text=clrtext, above=0.4cm of n_40] (n_41) {W-MSA (regular)};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_41] (add_42) {+};
+\node[inner sep=0, minimum size=0, above=0.4cm of add_42] (res_entry_43) {};
+\node[block, fill=clrnorm!85, minimum width=3.0cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_43] (n_44) {LayerNorm};
+\node[block, fill=clrffn!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext, above=0.4cm of n_44] (n_45) {MLP};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_45] (add_46) {+};
+\node[inner sep=0, minimum size=0, above=0.4cm of add_46] (res_entry_47) {};
+\node[block, fill=clrnorm!85, minimum width=3.0cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_47] (n_48) {LayerNorm};
+\node[block, fill=clrattention!85, minimum width=4.2cm, minimum height=0.95cm, text=clrtext, above=0.4cm of n_48] (n_49) {SW-MSA (shifted)};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_49] (add_50) {+};
+\node[inner sep=0, minimum size=0, above=0.4cm of add_50] (res_entry_51) {};
+\node[block, fill=clrnorm!85, minimum width=3.0cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_51] (n_52) {LayerNorm};
+\node[block, fill=clrffn!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext, above=0.4cm of n_52] (n_53) {MLP};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_53] (add_54) {+};
+\node[block, fill=clrembed!85, minimum width=3.6cm, minimum height=0.7cm, text=clrtext, above=0.4cm of add_54] (n_55) {Patch Merging (2x downsample)};
+\node[above=0.6cm of n_55, inner sep=0, minimum height=0] (n_56_rule) {};
+\draw[color=clrgroup_frame!50, line width=0.4pt] ([xshift=-2.2cm]n_56_rule.center) -- ([xshift=2.2cm]n_56_rule.center);
+\node[above=4pt of n_56_rule, font=\sffamily\normalsize\bfseries, text=clrborder] (n_56) {Stage 4};
+\node[inner sep=0, minimum size=0, above=0.4cm of n_56] (res_entry_57) {};
+\node[block, fill=clrnorm!85, minimum width=3.0cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_57] (n_58) {LayerNorm};
+\node[block, fill=clrattention!85, minimum width=4.2cm, minimum height=0.95cm, text=clrtext, above=0.4cm of n_58] (n_59) {W-MSA (regular)};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_59] (add_60) {+};
+\node[inner sep=0, minimum size=0, above=0.4cm of add_60] (res_entry_61) {};
+\node[block, fill=clrnorm!85, minimum width=3.0cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_61] (n_62) {LayerNorm};
+\node[block, fill=clrffn!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext, above=0.4cm of n_62] (n_63) {MLP};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_63] (add_64) {+};
+\node[inner sep=0, minimum size=0, above=0.4cm of add_64] (res_entry_65) {};
+\node[block, fill=clrnorm!85, minimum width=3.0cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_65] (n_66) {LayerNorm};
+\node[block, fill=clrattention!85, minimum width=4.2cm, minimum height=0.95cm, text=clrtext, above=0.4cm of n_66] (n_67) {SW-MSA (shifted)};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_67] (add_68) {+};
+\node[inner sep=0, minimum size=0, above=0.4cm of add_68] (res_entry_69) {};
+\node[block, fill=clrnorm!85, minimum width=3.0cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_69] (n_70) {LayerNorm};
+\node[block, fill=clrffn!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext, above=0.4cm of n_70] (n_71) {MLP};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_71] (add_72) {+};
+\node[block, fill=clrnorm!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext, above=0.4cm of add_72] (n_73) {Global AvgPool};
+\node[block, fill=clroutput!85, minimum width=2.0cm, minimum height=1.2cm, text=clrtext, above=0.4cm of n_73] (n_74) {FC (1000)};
+\draw[arrow] (n_1.north) -- (n_1.south);
+\draw[arrow] (n_2.north) -- (n_2.south);
+\draw[arrow] (n_4.north) -- (n_5.south);
+\draw[arrow] (res_entry_3.north) -- (n_4.south);
+\draw[arrow] (n_5.north) -- (add_6.south);
+\draw[skiparrow] (res_entry_3.east) -- ++(2.5,0) |- (add_6.east);
+\draw[arrow] (n_8.north) -- (n_9.south);
+\draw[arrow] (res_entry_7.north) -- (n_8.south);
+\draw[arrow] (n_9.north) -- (add_10.south);
+\draw[skiparrow] (res_entry_7.east) -- ++(1.9,0) |- (add_10.east);
+\draw[arrow] (add_6.north) -- (res_entry_7.south);
+\draw[arrow] (n_9.north) -- (res_entry_3.south);
+\draw[arrow] (n_12.north) -- (n_13.south);
+\draw[arrow] (res_entry_11.north) -- (n_12.south);
+\draw[arrow] (n_13.north) -- (add_14.south);
+\draw[skiparrow] (res_entry_11.east) -- ++(2.5,0) |- (add_14.east);
+\draw[arrow] (n_16.north) -- (n_17.south);
+\draw[arrow] (res_entry_15.north) -- (n_16.south);
+\draw[arrow] (n_17.north) -- (add_18.south);
+\draw[skiparrow] (res_entry_15.east) -- ++(1.9,0) |- (add_18.east);
+\draw[arrow] (add_14.north) -- (res_entry_15.south);
+\draw[arrow] (n_17.north) -- (res_entry_11.south);
+\draw[arrow] (n_19.north) -- (n_19.south);
+\draw[arrow] (n_20.north) -- (n_20.south);
+\draw[arrow] (n_22.north) -- (n_23.south);
+\draw[arrow] (res_entry_21.north) -- (n_22.south);
+\draw[arrow] (n_23.north) -- (add_24.south);
+\draw[skiparrow] (res_entry_21.east) -- ++(2.5,0) |- (add_24.east);
+\draw[arrow] (n_26.north) -- (n_27.south);
+\draw[arrow] (res_entry_25.north) -- (n_26.south);
+\draw[arrow] (n_27.north) -- (add_28.south);
+\draw[skiparrow] (res_entry_25.east) -- ++(1.9,0) |- (add_28.east);
+\draw[arrow] (add_24.north) -- (res_entry_25.south);
+\draw[arrow] (n_27.north) -- (res_entry_21.south);
+\draw[arrow] (n_30.north) -- (n_31.south);
+\draw[arrow] (res_entry_29.north) -- (n_30.south);
+\draw[arrow] (n_31.north) -- (add_32.south);
+\draw[skiparrow] (res_entry_29.east) -- ++(2.5,0) |- (add_32.east);
+\draw[arrow] (n_34.north) -- (n_35.south);
+\draw[arrow] (res_entry_33.north) -- (n_34.south);
+\draw[arrow] (n_35.north) -- (add_36.south);
+\draw[skiparrow] (res_entry_33.east) -- ++(1.9,0) |- (add_36.east);
+\draw[arrow] (add_32.north) -- (res_entry_33.south);
+\draw[arrow] (n_35.north) -- (res_entry_29.south);
+\draw[arrow] (n_37.north) -- (n_37.south);
+\draw[arrow] (n_38.north) -- (n_38.south);
+\draw[arrow] (n_40.north) -- (n_41.south);
+\draw[arrow] (res_entry_39.north) -- (n_40.south);
+\draw[arrow] (n_41.north) -- (add_42.south);
+\draw[skiparrow] (res_entry_39.east) -- ++(2.5,0) |- (add_42.east);
+\draw[arrow] (n_44.north) -- (n_45.south);
+\draw[arrow] (res_entry_43.north) -- (n_44.south);
+\draw[arrow] (n_45.north) -- (add_46.south);
+\draw[skiparrow] (res_entry_43.east) -- ++(1.9,0) |- (add_46.east);
+\draw[arrow] (add_42.north) -- (res_entry_43.south);
+\draw[arrow] (n_45.north) -- (res_entry_39.south);
+\draw[arrow] (n_48.north) -- (n_49.south);
+\draw[arrow] (res_entry_47.north) -- (n_48.south);
+\draw[arrow] (n_49.north) -- (add_50.south);
+\draw[skiparrow] (res_entry_47.east) -- ++(2.5,0) |- (add_50.east);
+\draw[arrow] (n_52.north) -- (n_53.south);
+\draw[arrow] (res_entry_51.north) -- (n_52.south);
+\draw[arrow] (n_53.north) -- (add_54.south);
+\draw[skiparrow] (res_entry_51.east) -- ++(1.9,0) |- (add_54.east);
+\draw[arrow] (add_50.north) -- (res_entry_51.south);
+\draw[arrow] (n_53.north) -- (res_entry_47.south);
+\draw[arrow] (n_55.north) -- (n_55.south);
+\draw[arrow] (n_56.north) -- (n_56.south);
+\draw[arrow] (n_58.north) -- (n_59.south);
+\draw[arrow] (res_entry_57.north) -- (n_58.south);
+\draw[arrow] (n_59.north) -- (add_60.south);
+\draw[skiparrow] (res_entry_57.east) -- ++(2.5,0) |- (add_60.east);
+\draw[arrow] (n_62.north) -- (n_63.south);
+\draw[arrow] (res_entry_61.north) -- (n_62.south);
+\draw[arrow] (n_63.north) -- (add_64.south);
+\draw[skiparrow] (res_entry_61.east) -- ++(1.9,0) |- (add_64.east);
+\draw[arrow] (add_60.north) -- (res_entry_61.south);
+\draw[arrow] (n_63.north) -- (res_entry_57.south);
+\draw[arrow] (n_66.north) -- (n_67.south);
+\draw[arrow] (res_entry_65.north) -- (n_66.south);
+\draw[arrow] (n_67.north) -- (add_68.south);
+\draw[skiparrow] (res_entry_65.east) -- ++(2.5,0) |- (add_68.east);
+\draw[arrow] (n_70.north) -- (n_71.south);
+\draw[arrow] (res_entry_69.north) -- (n_70.south);
+\draw[arrow] (n_71.north) -- (add_72.south);
+\draw[skiparrow] (res_entry_69.east) -- ++(1.9,0) |- (add_72.east);
+\draw[arrow] (add_68.north) -- (res_entry_69.south);
+\draw[arrow] (n_71.north) -- (res_entry_65.south);
+\draw[arrow] (n_73.north) -- (n_73.south);
+\draw[arrow] (n_74.north) -- (n_74.south);
+\draw[arrow] (n_1.south) ++ (0,-0.5) -- node[right, yshift=-2pt, font=\sffamily\scriptsize, text=clrtext] {Input} (n_1.south);
+\draw[arrow] (n_74.north) -- node[right, yshift=-2pt, font=\sffamily\scriptsize, text=clrtext] {Output} ++ (0,0.5);
+\node[draw=clrgroup_frame, rounded corners=6pt, dashed, line width=0.8pt, fill=clrgroup_fill, fill opacity=0.4, inner sep=0.35cm, fit=(n_4) (n_5) (n_8) (n_9) (n_12) (n_13) (n_16) (n_17)] (g_0) {};
+\node[draw=clrgroup_frame, rounded corners=6pt, dashed, line width=0.8pt, fill=clrgroup_fill, fill opacity=0.4, inner sep=0.35cm, fit=(n_22) (n_23) (n_26) (n_27) (n_30) (n_31) (n_34) (n_35)] (g_1) {};
+\node[draw=clrgroup_frame, rounded corners=6pt, dashed, line width=0.8pt, fill=clrgroup_fill, fill opacity=0.4, inner sep=0.35cm, fit=(n_40) (n_41) (n_44) (n_45) (n_48) (n_49) (n_52) (n_53)] (g_2) {};
+\node[right=12pt of g_2.east, anchor=west, font=\sffamily\Large\bfseries, text=clrborder] (g_2_badge) {$\times6$};
+\node[draw=clrgroup_frame, rounded corners=6pt, dashed, line width=0.8pt, fill=clrgroup_fill, fill opacity=0.4, inner sep=0.35cm, fit=(n_58) (n_59) (n_62) (n_63) (n_66) (n_67) (n_70) (n_71)] (g_3) {};
+\node[below=0.6cm of current bounding box.south, subtitle, text width=14cm, align=center] {\textbf{Swin-T -- Hierarchical ViT}};
+\end{tikzpicture}
+\end{document}

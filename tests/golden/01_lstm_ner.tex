@@ -1,0 +1,84 @@
+\documentclass[border=15pt, tikz]{standalone}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta, decorations.pathreplacing, calc, fit}
+\definecolor{clrattention}{HTML}{45B7D1}
+\definecolor{clrattention_alt}{HTML}{96E6F0}
+\definecolor{clrffn}{HTML}{F97068}
+\definecolor{clrnorm}{HTML}{FFD93D}
+\definecolor{clrembed}{HTML}{6BCB77}
+\definecolor{clrresidual}{HTML}{4D96FF}
+\definecolor{clroutput}{HTML}{C084FC}
+\definecolor{clrspectral}{HTML}{22D3EE}
+\definecolor{clrphysics}{HTML}{FB923C}
+\definecolor{clrborder}{HTML}{334155}
+\definecolor{clrtext}{HTML}{1E293B}
+\definecolor{clrgroup_frame}{HTML}{94A3B8}
+\definecolor{clrgroup_fill}{HTML}{F1F5F9}
+\begin{document}
+\begin{tikzpicture}[
+    >=Stealth,
+    every node/.style={font=\sffamily},
+    block/.style={draw=clrborder, rounded corners=4pt, minimum width=3.8cm,
+                  minimum height=0.85cm, font=\sffamily\small\bfseries,
+                  text=clrtext, line width=0.6pt},
+    arrow/.style={->, thick, color=clrborder, line width=0.8pt},
+    skiparrow/.style={->, thick, color=clrresidual, line width=0.8pt, rounded corners=3pt},
+    label/.style={font=\sffamily\scriptsize, text=clrtext},
+    subtitle/.style={font=\sffamily\footnotesize, text=clrtext},
+]
+\node[block, fill=clrembed!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext] (n_1) at (0,0) {Word Embedding};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_1] (n_2) {Pos. Embedding};
+\node[inner sep=0, minimum size=0, above=0.4cm of n_2] (res_entry_3) {};
+\node[block, fill=clrnorm!85, minimum width=3.4cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_3] (n_4) {Concat [$h_{t-1}$, $x_t$]};
+\node[block, fill=clrattention!85, minimum width=3.8cm, minimum height=0.7cm, text=clrtext, above=0.4cm of n_4] (n_5) {Forget Gate ($\sigma$)};
+\node[block, fill=clrattention_alt!85, minimum width=3.8cm, minimum height=0.7cm, text=clrtext, above=0.4cm of n_5] (n_6) {Input Gate ($\sigma$ + tanh)};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_6] (add_7) {+};
+\node[block, fill=clrattention!85, minimum width=3.8cm, minimum height=0.7cm, text=clrtext, above=0.4cm of add_7] (n_8) {Output Gate ($\sigma$)};
+\node[block, fill=clrffn!85, minimum width=3.4cm, minimum height=0.65cm, text=clrtext, above=0.4cm of n_8] (n_9) {$h_t = o_t \odot \tanh(C_t)$};
+\node[block, fill=clrresidual!85, minimum width=3.4cm, minimum height=0.65cm, text=clrtext, above=0.4cm of n_9] (n_10) {Bi-Merge (concat $\rightarrow \leftarrow$)};
+\node[block, fill=clrnorm!85, minimum width=2.4cm, minimum height=0.6cm, text=clrtext, above=0.4cm of n_10] (n_11) {Dropout (0.3)};
+\node[inner sep=0, minimum size=0, above=0.4cm of n_11] (res_entry_12) {};
+\node[block, fill=clrnorm!85, minimum width=3.4cm, minimum height=0.6cm, text=clrtext, above=0.4cm of res_entry_12] (n_13) {Concat [$h_{t-1}$, $x_t$]};
+\node[block, fill=clrattention!85, minimum width=3.8cm, minimum height=0.7cm, text=clrtext, above=0.4cm of n_13] (n_14) {Forget Gate ($\sigma$)};
+\node[block, fill=clrattention_alt!85, minimum width=3.8cm, minimum height=0.7cm, text=clrtext, above=0.4cm of n_14] (n_15) {Input Gate ($\sigma$ + tanh)};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_15] (add_16) {+};
+\node[block, fill=clrattention!85, minimum width=3.8cm, minimum height=0.7cm, text=clrtext, above=0.4cm of add_16] (n_17) {Output Gate ($\sigma$)};
+\node[block, fill=clrffn!85, minimum width=3.4cm, minimum height=0.65cm, text=clrtext, above=0.4cm of n_17] (n_18) {$h_t = o_t \odot \tanh(C_t)$};
+\node[block, fill=clrresidual!85, minimum width=3.4cm, minimum height=0.65cm, text=clrtext, above=0.4cm of n_18] (n_19) {Bi-Merge (concat $\rightarrow \leftarrow$)};
+\node[block, fill=clrnorm!85, minimum width=2.4cm, minimum height=0.6cm, text=clrtext, above=0.4cm of n_19] (n_20) {Dropout (0.3)};
+\node[block, fill=clrresidual!85, minimum width=2.0cm, minimum height=1.0cm, text=clrtext, above=0.4cm of n_20] (n_21) {Dense (256)};
+\node[block, fill=clrnorm!85, minimum width=2.4cm, minimum height=0.6cm, text=clrtext, above=0.4cm of n_21] (n_22) {RELU};
+\node[block, fill=clroutput!85, minimum width=2.0cm, minimum height=1.2cm, text=clrtext, above=0.4cm of n_22] (n_23) {CRF / Softmax};
+\draw[arrow] (n_1.north) -- (n_1.south);
+\draw[arrow] (n_2.north) -- (n_2.south);
+\draw[arrow] (n_4.north) -- (n_5.south);
+\draw[arrow] (n_5.north) -- (n_6.south);
+\draw[arrow] (res_entry_3.north) -- (n_4.south);
+\draw[arrow] (n_6.north) -- (add_7.south);
+\draw[skiparrow] (res_entry_3.east) -- ++(2.3,0) |- (add_7.east);
+\draw[arrow] (add_7.north) -- (n_8.south);
+\draw[arrow] (n_8.north) -- (n_9.south);
+\draw[arrow] (n_9.north) -- (n_10.south);
+\draw[arrow] (n_10.north) -- (res_entry_3.south);
+\draw[arrow] (n_11.north) -- (n_11.south);
+\draw[arrow] (n_13.north) -- (n_14.south);
+\draw[arrow] (n_14.north) -- (n_15.south);
+\draw[arrow] (res_entry_12.north) -- (n_13.south);
+\draw[arrow] (n_15.north) -- (add_16.south);
+\draw[skiparrow] (res_entry_12.east) -- ++(2.3,0) |- (add_16.east);
+\draw[arrow] (add_16.north) -- (n_17.south);
+\draw[arrow] (n_17.north) -- (n_18.south);
+\draw[arrow] (n_18.north) -- (n_19.south);
+\draw[arrow] (n_19.north) -- (res_entry_12.south);
+\draw[arrow] (n_20.north) -- (n_20.south);
+\draw[arrow] (n_21.north) -- (n_21.south);
+\draw[arrow] (n_22.north) -- (n_22.south);
+\draw[arrow] (n_23.north) -- (n_23.south);
+\draw[arrow] (n_1.south) ++ (0,-0.5) -- node[right, yshift=-2pt, font=\sffamily\scriptsize, text=clrtext] {Input} (n_1.south);
+\draw[arrow] (n_23.north) -- node[right, yshift=-2pt, font=\sffamily\scriptsize, text=clrtext] {Output} ++ (0,0.5);
+\node[draw=clrgroup_frame, rounded corners=6pt, dashed, line width=0.8pt, fill=clrgroup_fill, fill opacity=0.4, inner sep=0.35cm, fit=(n_4) (n_5) (n_6) (n_8) (n_9) (n_10) (n_11) (n_13) (n_14) (n_15) (n_17) (n_18) (n_19) (n_20)] (g_0) {};
+\node[below=0.6cm of current bounding box.south, subtitle, text width=14cm, align=center] {\textbf{Bidirectional LSTM -- NER}};
+\end{tikzpicture}
+\end{document}

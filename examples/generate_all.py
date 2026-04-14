@@ -10,18 +10,30 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from plot_nn_mcp.dsl import *
 
 OUTPUT = os.path.join(os.path.dirname(__file__), "output", "architectures")
-os.makedirs(OUTPUT, exist_ok=True)
+
+# Registry of (name, Architecture, show_n) in definition order — used by tests and CLI.
+ARCHITECTURES: list[tuple[str, "Architecture", int]] = []
+# Tests import this module to populate ARCHITECTURES without touching disk.
+WRITE_OUTPUTS = os.environ.get("PLOTNN_SKIP_WRITE") != "1"
+SHOW_N_DEFAULT = 3
+_announced_no_tex = False
 
 
-def save(arch: Architecture, name: str, show_n: int = 3):
+def save(arch: "Architecture", name: str, show_n: int = SHOW_N_DEFAULT):
+    global _announced_no_tex
+    ARCHITECTURES.append((name, arch, show_n))
+    if not WRITE_OUTPUTS:
+        return
+    os.makedirs(OUTPUT, exist_ok=True)
     path = os.path.join(OUTPUT, f"{name}.tex")
     arch.render_to_file(path, show_n=show_n)
-    for compiler in ("tectonic", "pdflatex"):
-        if shutil.which(compiler):
-            subprocess.run([compiler, path], capture_output=True, timeout=120,
-                           cwd=OUTPUT)
-            if os.path.exists(path.replace(".tex", ".pdf")):
-                break
+    engine = next((c for c in ("tectonic", "pdflatex") if shutil.which(c)), None)
+    if engine is None:
+        if not _announced_no_tex:
+            print("  (no LaTeX engine found — skipping PDF compilation)")
+            _announced_no_tex = True
+    else:
+        subprocess.run([engine, path], capture_output=True, timeout=120, cwd=OUTPUT)
     print(f"  {name}")
 
 
@@ -429,4 +441,5 @@ a.add(ClassificationHead(label="FC (1000)"))
 save(a, "25_swin_t", show_n=2)
 
 
-print(f"\nAll 25 architectures generated in {OUTPUT}/")
+if WRITE_OUTPUTS:
+    print(f"\nAll 25 architectures generated in {OUTPUT}/")

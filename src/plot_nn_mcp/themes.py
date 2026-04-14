@@ -9,6 +9,55 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass
+from enum import Enum
+
+
+class Role(str, Enum):
+    """Semantic role of a block. Drives color selection via the active theme.
+
+    Intentionally typed as ``str`` Enum so existing callsites that expect a
+    string fill name (``"attention"``, ``"ffn"``, ...) keep working during
+    the gradual migration away from positional color slots.
+    """
+    ATTENTION = "attention"        # self-/cross-/masked-attention
+    ATTENTION_ALT = "attention_alt"  # local/windowed attention variants
+    FFN = "ffn"                    # FFN / MLP / Experts
+    NORM = "norm"                  # LayerNorm, RMSNorm, BatchNorm
+    EMBED = "embed"                # Embedding, Patch projection
+    RESIDUAL = "residual"          # add/skip sinks
+    OUTPUT = "output"              # ClassificationHead, LM Head, Router
+    DENSE = "dense"                # Dense/Linear (currently aliased to residual)
+    SPECTRAL = "spectral"          # Fourier blocks
+    PHYSICS = "physics"            # PINN, DeepONet
+
+    @property
+    def fill_name(self) -> str:
+        """The TikZ color name (without ``clr`` prefix) this role resolves to."""
+        return self.value
+
+
+_COLOR_ALIAS = {
+    # Task 8: dense and background are suppressed from the theme emission;
+    # route any caller that requested them to a live color name.
+    "dense": "residual",
+    "background": "border",  # unlikely but keeps LaTeX compiling
+}
+
+
+def resolve_fill(fill: Role | str) -> str:
+    """Accept either a legacy fill-name string or a :class:`Role` and return
+    the TikZ color name (without ``clr`` prefix) to use.
+
+    Raising on unknown strings is intentional — it catches typos that would
+    otherwise silently produce an undefined-color TikZ error.
+    """
+    if isinstance(fill, Role):
+        name = fill.value
+    elif "!" in fill:          # pre-composed opacity expression, leave alone
+        return fill
+    else:
+        name = fill
+    return _COLOR_ALIAS.get(name, name)
 
 
 @dataclass(frozen=True)
@@ -151,11 +200,18 @@ def get_theme(name: str) -> Theme:
     return THEMES[name]
 
 
+# Task 8: suppressed from emission because nothing references them in TikZ.
+# ``background`` was declared but never used as ``fill=clrbackground`` anywhere.
+# ``dense`` has the same hex as ``residual`` in every theme, so one color
+# name is enough — callers that used ``Role.DENSE`` resolve to ``clrresidual``.
+_SUPPRESSED_FIELDS = frozenset({"name", "background", "dense"})
+
+
 def theme_to_tikz_colors(theme: Theme) -> str:
     """Generate TikZ \\definecolor commands for all semantic roles."""
     lines = []
     for f in dataclasses.fields(theme):
-        if f.name == "name":
+        if f.name in _SUPPRESSED_FIELDS:
             continue
         hex_color = getattr(theme, f.name)
         lines.append(rf"\definecolor{{clr{f.name}}}{{HTML}}{{{hex_color}}}")

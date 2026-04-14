@@ -10,7 +10,7 @@ Produces clean, publication-quality diagrams.
 
 from __future__ import annotations
 
-from .themes import Theme, theme_to_tikz_colors
+from .themes import Role, Theme, resolve_fill, theme_to_tikz_colors
 
 _LATEX_SPECIAL = str.maketrans({
     "#": r"\#",
@@ -58,8 +58,6 @@ def flat_begin() -> str:
         r"    block/.style={draw=clrborder, rounded corners=4pt, minimum width=3.8cm," "\n"
         r"                  minimum height=0.85cm, font=\sffamily\small\bfseries," "\n"
         r"                  text=clrtext, line width=0.6pt}," "\n"
-        r"    smallblock/.style={block, minimum width=2.4cm, minimum height=0.65cm," "\n"
-        r"                      font=\sffamily\scriptsize\bfseries}," "\n"
         r"    arrow/.style={->, thick, color=clrborder, line width=0.8pt}," "\n"
         r"    skiparrow/.style={->, thick, color=clrresidual, line width=0.8pt, rounded corners=3pt}," "\n"
         r"    label/.style={font=\sffamily\scriptsize, text=clrtext}," "\n"
@@ -98,7 +96,7 @@ def width_from_dim(dim: int, min_dim: int = 32, max_dim: int = 512,
 def flat_block(
     name: str,
     text: str,
-    fill: str,
+    fill: Role | str,
     position: str = "(0,0)",
     width: float = 3.8,
     height: float = 0.85,
@@ -113,9 +111,10 @@ def flat_block(
     text_color: str = "clrtext",
 ) -> str:
     """Render a flat 2D block (rounded rectangle with centered text)."""
+    fill_name = resolve_fill(fill)
     opts = [
         style,
-        f"fill=clr{fill}!{int(opacity * 100)}" if "!" not in fill else f"fill={fill}",
+        f"fill=clr{fill_name}!{int(opacity * 100)}" if "!" not in fill_name else f"fill={fill_name}",
         f"minimum width={width}cm",
         f"minimum height={height}cm",
         f"text={text_color}",

@@ -1,0 +1,87 @@
+\documentclass[border=15pt, tikz]{standalone}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta, decorations.pathreplacing, calc, fit}
+\definecolor{clrattention}{HTML}{00B4D8}
+\definecolor{clrattention_alt}{HTML}{90E0EF}
+\definecolor{clrffn}{HTML}{E63946}
+\definecolor{clrnorm}{HTML}{FFBE0B}
+\definecolor{clrembed}{HTML}{06D6A0}
+\definecolor{clrresidual}{HTML}{118AB2}
+\definecolor{clroutput}{HTML}{7B2CBF}
+\definecolor{clrspectral}{HTML}{00F5D4}
+\definecolor{clrphysics}{HTML}{F77F00}
+\definecolor{clrborder}{HTML}{073B4C}
+\definecolor{clrtext}{HTML}{073B4C}
+\definecolor{clrgroup_frame}{HTML}{073B4C}
+\definecolor{clrgroup_fill}{HTML}{EDF6F9}
+\begin{document}
+\begin{tikzpicture}[
+    >=Stealth,
+    every node/.style={font=\sffamily},
+    block/.style={draw=clrborder, rounded corners=4pt, minimum width=3.8cm,
+                  minimum height=0.85cm, font=\sffamily\small\bfseries,
+                  text=clrtext, line width=0.6pt},
+    arrow/.style={->, thick, color=clrborder, line width=0.8pt},
+    skiparrow/.style={->, thick, color=clrresidual, line width=0.8pt, rounded corners=3pt},
+    label/.style={font=\sffamily\scriptsize, text=clrtext},
+    subtitle/.style={font=\sffamily\footnotesize, text=clrtext},
+]
+\node[block, fill=clrembed!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext] (n_1) at (0,0) {Token Embedding (32k)};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_1] (n_2) {RoPE};
+\node[inner sep=0, minimum size=0, above=0.4cm of n_2] (res_entry_3) {};
+\node[block, fill=clrnorm!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext, above=0.4cm of res_entry_3] (n_4) {LayerNorm};
+\node[block, fill=clrattention_alt!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext, above=0.4cm of n_4] (n_5) {GQA (8kv)};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_5] (add_6) {+};
+\node[inner sep=0, minimum size=0, above=0.4cm of add_6] (res_entry_7) {};
+\node[block, fill=clrnorm!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext, above=0.4cm of res_entry_7] (n_8) {LayerNorm};
+\node[block, fill=clroutput!85, minimum width=3.0cm, minimum height=0.7cm, text=clrtext, above=0.4cm of n_8] (n_9) {Router (top-2)};
+\node[block, fill=clrffn!85, minimum width=3.8cm, minimum height=0.9cm, text=clrtext, above=0.4cm of n_9] (n_10) {8 Experts (FFN 14336)};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_10] (add_11) {+};
+\node[inner sep=0, minimum size=0, above=0.4cm of add_11] (res_entry_12) {};
+\node[block, fill=clrnorm!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext, above=0.4cm of res_entry_12] (n_13) {LayerNorm};
+\node[block, fill=clrattention_alt!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext, above=0.4cm of n_13] (n_14) {GQA (8kv)};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_14] (add_15) {+};
+\node[inner sep=0, minimum size=0, above=0.4cm of add_15] (res_entry_16) {};
+\node[block, fill=clrnorm!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext, above=0.4cm of res_entry_16] (n_17) {LayerNorm};
+\node[block, fill=clroutput!85, minimum width=3.0cm, minimum height=0.7cm, text=clrtext, above=0.4cm of n_17] (n_18) {Router (top-2)};
+\node[block, fill=clrffn!85, minimum width=3.8cm, minimum height=0.9cm, text=clrtext, above=0.4cm of n_18] (n_19) {8 Experts (FFN 14336)};
+\node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_19] (add_20) {+};
+\node[block, fill=clrnorm!85, minimum width=3.4cm, minimum height=0.65cm, text=clrtext, above=0.4cm of add_20] (n_21) {RMSNorm};
+\node[block, fill=clrresidual!85, minimum width=2.0cm, minimum height=1.0cm, text=clrtext, above=0.4cm of n_21] (n_22) {LM Head};
+\node[block, fill=clroutput!85, minimum width=2.0cm, minimum height=1.2cm, text=clrtext, above=0.4cm of n_22] (n_23) {Next Token};
+\draw[arrow] (n_1.north) -- (n_1.south);
+\draw[arrow] (n_2.north) -- (n_2.south);
+\draw[arrow] (n_4.north) -- (n_5.south);
+\draw[arrow] (res_entry_3.north) -- (n_4.south);
+\draw[arrow] (n_5.north) -- (add_6.south);
+\draw[skiparrow] (res_entry_3.east) -- ++(2.2,0) |- (add_6.east);
+\draw[arrow] (n_5.north) -- (res_entry_3.south);
+\draw[arrow] (n_8.north) -- (n_9.south);
+\draw[arrow] (n_9.north) -- (n_10.south);
+\draw[arrow] (res_entry_7.north) -- (n_8.south);
+\draw[arrow] (n_10.north) -- (add_11.south);
+\draw[skiparrow] (res_entry_7.east) -- ++(2.3,0) |- (add_11.east);
+\draw[arrow] (n_10.north) -- (res_entry_7.south);
+\draw[arrow] (n_13.north) -- (n_14.south);
+\draw[arrow] (res_entry_12.north) -- (n_13.south);
+\draw[arrow] (n_14.north) -- (add_15.south);
+\draw[skiparrow] (res_entry_12.east) -- ++(2.2,0) |- (add_15.east);
+\draw[arrow] (n_14.north) -- (res_entry_12.south);
+\draw[arrow] (n_17.north) -- (n_18.south);
+\draw[arrow] (n_18.north) -- (n_19.south);
+\draw[arrow] (res_entry_16.north) -- (n_17.south);
+\draw[arrow] (n_19.north) -- (add_20.south);
+\draw[skiparrow] (res_entry_16.east) -- ++(2.3,0) |- (add_20.east);
+\draw[arrow] (n_19.north) -- (res_entry_16.south);
+\draw[arrow] (n_21.north) -- (n_21.south);
+\draw[arrow] (n_22.north) -- (n_22.south);
+\draw[arrow] (n_23.north) -- (n_23.south);
+\draw[arrow] (n_1.south) ++ (0,-0.5) -- node[right, yshift=-2pt, font=\sffamily\scriptsize, text=clrtext] {Input} (n_1.south);
+\draw[arrow] (n_23.north) -- node[right, yshift=-2pt, font=\sffamily\scriptsize, text=clrtext] {Output} ++ (0,0.5);
+\node[draw=clrgroup_frame, rounded corners=6pt, dashed, line width=0.8pt, fill=clrgroup_fill, fill opacity=0.4, inner sep=0.35cm, fit=(n_4) (n_5) (n_8) (n_9) (n_10) (n_13) (n_14) (n_17) (n_18) (n_19)] (g_0) {};
+\node[right=12pt of g_0.east, anchor=west, font=\sffamily\Large\bfseries, text=clrborder] (g_0_badge) {$\times32$};
+\node[below=0.6cm of current bounding box.south, subtitle, text width=14cm, align=center] {\textbf{Mixtral-8x7B -- MoE -- GQA}};
+\end{tikzpicture}
+\end{document}

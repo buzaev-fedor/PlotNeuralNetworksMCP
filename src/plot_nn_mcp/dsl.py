@@ -496,14 +496,39 @@ class Architecture:
         self.layers.append(layer)
         return self
 
-    def render(self, show_n: int = 4) -> str:
+    def render(self, show_n: int = 4, use_ir: bool = True) -> str:  # noqa: C901
+        import warnings
+        if not use_ir:
+            warnings.warn(
+                "Architecture.render(use_ir=False) uses the legacy monolithic "
+                "renderer which lacks the structural bug-fixes (Mixtral MoE "
+                "residual, DeBERTa double-Output, fractional cm rounding). "
+                "Prefer the default use_ir=True; legacy path will be removed "
+                "in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         """Render the architecture to a complete LaTeX string.
 
         Args:
             show_n: For repeated blocks, show this many explicitly
                     and collapse the rest with a ×N bracket.
+            use_ir: Opt-in to the new IR-based render pipeline (Phase 4+).
+                    Required for the structural bug-fixes (Mixtral MoE
+                    residual, no double-Output, no fractional cm). Falls
+                    back to legacy if the architecture has layers that
+                    haven't been migrated yet.
         """
         theme = get_theme(self.theme_name)
+        if use_ir and self.layout in ("vertical", "horizontal"):
+            from .lowering import architecture_to_ir, can_lower_architecture
+            from .render import emit_tikz
+            ok, _missing = can_lower_architecture(self)
+            if ok:
+                graph = architecture_to_ir(self, show_n=show_n)
+                direction = ("horizontal" if self.layout == "horizontal"
+                             else "vertical")
+                return emit_tikz(graph, theme, direction=direction)
         groups = _detect_groups(self.layers)
         if self.layout == "horizontal":
             return _render_horizontal(self.name, self.layers, groups, theme, show_n)
@@ -511,9 +536,10 @@ class Architecture:
             return _render_unet(self.name, self.layers, theme)
         return _render_vertical(self.name, self.layers, groups, theme, show_n)
 
-    def render_to_file(self, path: str, show_n: int = 4) -> None:
+    def render_to_file(self, path: str, show_n: int = 4,
+                       use_ir: bool = True) -> None:
         with open(path, "w") as f:
-            f.write(self.render(show_n=show_n))
+            f.write(self.render(show_n=show_n, use_ir=use_ir))
 
 
 # ---------------------------------------------------------------------------
