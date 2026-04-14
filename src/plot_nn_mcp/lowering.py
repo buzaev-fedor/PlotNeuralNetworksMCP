@@ -397,7 +397,7 @@ def lstm_block_to_ir(layer: "dsl.LSTMBlock") -> IROp:
                    size_hint=(3.8, 0.7))
     ht = IRBlockOp(role=Role.FFN,
                    label=r"$h_t = o_t \odot \tanh(C_t)$",
-                   size_hint=(3.4, 0.65))
+                   size_hint=(4.0, 0.7))
     seq: list[IROp] = [
         IRResidualOp(body=[concat, fg, ig]),  # → ⊕ at end
         og,
@@ -407,7 +407,7 @@ def lstm_block_to_ir(layer: "dsl.LSTMBlock") -> IROp:
         seq.append(IRBlockOp(
             role=Role.RESIDUAL,
             label=r"Bi-Merge (concat $\rightarrow \leftarrow$)",
-            size_hint=(3.4, 0.65),
+            size_hint=(4.4, 0.7),
             dim=2 * layer.hidden_size,
         ))
     return IRSequenceOp(ops=seq)
@@ -439,7 +439,7 @@ def gru_block_to_ir(layer: "dsl.GRUBlock") -> IROp:
         seq.append(IRBlockOp(
             role=Role.RESIDUAL,
             label=r"Bi-Merge (concat $\rightarrow \leftarrow$)",
-            size_hint=(3.4, 0.65),
+            size_hint=(4.4, 0.7),
             dim=2 * layer.hidden_size,
         ))
     return IRSequenceOp(ops=seq) if len(seq) > 1 else seq[0]

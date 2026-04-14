@@ -23,8 +23,8 @@
     block/.style={draw=clrborder, rounded corners=4pt, minimum width=3.8cm,
                   minimum height=0.85cm, font=\sffamily\small\bfseries,
                   text=clrtext, line width=0.6pt},
-    arrow/.style={->, thick, color=clrborder, line width=0.8pt},
-    skiparrow/.style={->, thick, color=clrresidual, line width=0.8pt, rounded corners=3pt},
+    arrow/.style={->, thick, color=clrborder, line width=0.7pt, shorten >=1.5pt, shorten <=1.5pt},
+    skiparrow/.style={->, thick, color=clrresidual, line width=0.8pt, rounded corners=4pt, shorten >=1.5pt},
     label/.style={font=\sffamily\scriptsize, text=clrtext},
     subtitle/.style={font=\sffamily\footnotesize, text=clrtext},
 ]
@@ -55,42 +55,41 @@
 \node[circle, draw=clrborder, fill=clrresidual!30, inner sep=2pt, font=\sffamily\scriptsize\bfseries, above=0.3cm of n_24] (add_25) {+};
 \node[block, fill=clrnorm!85, minimum width=3.8cm, minimum height=0.85cm, text=clrtext, above=0.4cm of add_25] (n_26) {LayerNorm};
 \node[block, fill=clroutput!85, minimum width=2.0cm, minimum height=1.2cm, text=clrtext, above=0.4cm of n_26] (n_27) {[CLS] Output};
-\draw[arrow] (n_1.north) -- (n_1.south);
-\draw[arrow] (n_2.north) -- (n_2.south);
+\draw[arrow] (n_1.north) -- (n_2.south);
 \draw[arrow] (res_entry_3.north) -- (n_4.south);
 \draw[arrow] (n_4.north) -- (add_5.south);
-\draw[skiparrow] (res_entry_3.east) -- ++(2.2,0) |- (add_5.east);
+\draw[skiparrow] (res_entry_3.east) -- ++(2.4,0) |- (add_5.east);
 \draw[arrow] (add_5.north) -- (n_6.south);
 \draw[arrow] (res_entry_7.north) -- (n_8.south);
 \draw[arrow] (n_8.north) -- (add_9.south);
-\draw[skiparrow] (res_entry_7.east) -- ++(2.2,0) |- (add_9.east);
+\draw[skiparrow] (res_entry_7.east) -- ++(2.4,0) |- (add_9.east);
 \draw[arrow] (n_6.north) -- (res_entry_7.south);
 \draw[arrow] (add_9.north) -- (n_10.south);
-\draw[arrow] (n_10.north) -- (res_entry_3.south);
+\draw[arrow] (n_2.north) -- (res_entry_3.south);
 \draw[arrow] (res_entry_11.north) -- (n_12.south);
 \draw[arrow] (n_12.north) -- (add_13.south);
-\draw[skiparrow] (res_entry_11.east) -- ++(2.2,0) |- (add_13.east);
+\draw[skiparrow] (res_entry_11.east) -- ++(2.4,0) |- (add_13.east);
 \draw[arrow] (add_13.north) -- (n_14.south);
 \draw[arrow] (res_entry_15.north) -- (n_16.south);
 \draw[arrow] (n_16.north) -- (add_17.south);
-\draw[skiparrow] (res_entry_15.east) -- ++(2.2,0) |- (add_17.east);
+\draw[skiparrow] (res_entry_15.east) -- ++(2.4,0) |- (add_17.east);
 \draw[arrow] (n_14.north) -- (res_entry_15.south);
 \draw[arrow] (add_17.north) -- (n_18.south);
-\draw[arrow] (n_18.north) -- (res_entry_11.south);
+\draw[arrow] (n_10.north) -- (res_entry_11.south);
 \draw[arrow] (res_entry_19.north) -- (n_20.south);
 \draw[arrow] (n_20.north) -- (add_21.south);
-\draw[skiparrow] (res_entry_19.east) -- ++(2.2,0) |- (add_21.east);
+\draw[skiparrow] (res_entry_19.east) -- ++(2.4,0) |- (add_21.east);
 \draw[arrow] (add_21.north) -- (n_22.south);
 \draw[arrow] (res_entry_23.north) -- (n_24.south);
 \draw[arrow] (n_24.north) -- (add_25.south);
-\draw[skiparrow] (res_entry_23.east) -- ++(2.2,0) |- (add_25.east);
+\draw[skiparrow] (res_entry_23.east) -- ++(2.4,0) |- (add_25.east);
 \draw[arrow] (n_22.north) -- (res_entry_23.south);
 \draw[arrow] (add_25.north) -- (n_26.south);
-\draw[arrow] (n_26.north) -- (res_entry_19.south);
-\draw[arrow] (n_27.north) -- (n_27.south);
-\draw[arrow] (n_1.south) ++ (0,-0.5) -- node[right, yshift=-2pt, font=\sffamily\scriptsize, text=clrtext] {Input} (n_1.south);
-\draw[arrow] (n_27.north) -- node[right, yshift=-2pt, font=\sffamily\scriptsize, text=clrtext] {Output} ++ (0,0.5);
-\node[draw=clrgroup_frame, rounded corners=6pt, dashed, line width=0.8pt, fill=clrgroup_fill, fill opacity=0.4, inner sep=0.35cm, fit=(n_4) (n_6) (n_8) (n_10) (n_12) (n_14) (n_16) (n_18) (n_20) (n_22) (n_24) (n_26)] (g_0) {};
+\draw[arrow] (n_18.north) -- (res_entry_19.south);
+\draw[arrow] (n_26.north) -- (n_27.south);
+\draw[arrow] ([yshift=-0.6cm]n_1.south) -- node[right, yshift=-2pt, font=\sffamily\scriptsize, text=clrtext] {Input} (n_1.south);
+\draw[arrow] (n_27.north) -- node[right, yshift=-2pt, font=\sffamily\scriptsize, text=clrtext] {Output} ([yshift=0.6cm]n_27.north);
+\node[draw=clrgroup_frame!60, rounded corners=8pt, densely dashed, line width=0.6pt, fill=clrgroup_fill, fill opacity=0.35, inner ysep=0.55cm, inner xsep=0.7cm, fit=(n_4) (n_6) (n_8) (n_10) (n_12) (n_14) (n_16) (n_18) (n_20) (n_22) (n_24) (n_26)] (g_0) {};
 \node[right=12pt of g_0.east, anchor=west, font=\sffamily\Large\bfseries, text=clrborder] (g_0_badge) {$\times12$};
 \node[below=0.6cm of current bounding box.south, subtitle, text width=14cm, align=center] {\textbf{BERT-base -- 12L -- 768d -- 12h}};
 \end{tikzpicture}

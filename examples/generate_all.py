@@ -72,7 +72,7 @@ save(a, "02_gru_translation")
 # ═══════════════════════════════════════════════════════════════════════
 # 3. Seq2Seq + Bahdanau Attention
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"Seq2Seq + Bahdanau Attention", theme="modern")
+a = Architecture(r"Seq2Seq + Bahdanau Attention", theme="modern", layout="horizontal")
 a.add(SectionHeader("Encoder"))
 a.add(Embedding(256, label="Source Embedding"))
 a.add(LSTMBlock(hidden_size=256, bidirectional=True))
@@ -210,7 +210,7 @@ save(a, "12_dcgan")
 # ═══════════════════════════════════════════════════════════════════════
 # 13. StyleGAN2
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"StyleGAN2", theme="paper")
+a = Architecture(r"StyleGAN2", theme="paper", layout="horizontal")
 a.add(SectionHeader("Mapping Network"))
 a.add(DenseLayer(512, label="Latent z (512)"))
 a.add(DenseLayer(512, label="FC + LeakyReLU x8"))
@@ -249,7 +249,7 @@ save(a, "14_ddpm")
 # ═══════════════════════════════════════════════════════════════════════
 # 15. DiT (Diffusion Transformer)
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"DiT-B/4 -- Diffusion Transformer", theme="vibrant")
+a = Architecture(r"DiT-B/4 -- Diffusion Transformer", theme="vibrant", layout="horizontal")
 a.add(CustomBlock("Noisy Image", "embed"))
 a.add(ConvBlock(768, kernel_size=4, pool=None, label="Patchify 4x4"))
 a.add(PositionalEncoding("sinusoidal", 768, label="Pos. Embedding"))
@@ -317,7 +317,7 @@ save(a, "18_vit_b16")
 # ═══════════════════════════════════════════════════════════════════════
 # 19. YOLOv8
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"YOLOv8 -- Detection", theme="vibrant")
+a = Architecture(r"YOLOv8 -- Detection", theme="vibrant", layout="horizontal")
 a.add(SectionHeader("Backbone (CSPDarknet)"))
 a.add(ConvBlock(64, kernel_size=3, pool=None, label="Stem Conv"))
 a.add(CustomBlock("CSPDarknet Stage 1 (128)", "attention"))
@@ -418,7 +418,7 @@ save(a, "24_uno")
 # ═══════════════════════════════════════════════════════════════════════
 # 25. Swin Transformer (Swin-T)
 # ═══════════════════════════════════════════════════════════════════════
-a = Architecture(r"Swin-T -- Hierarchical ViT", theme="modern")
+a = Architecture(r"Swin-T -- Hierarchical ViT", theme="modern", layout="horizontal")
 a.add(PatchEmbedding(patch_size=4, d_model=96, label="Patch Partition + Linear Embed"))
 a.add(SectionHeader("Stage 1"))
 a.add(SwinBlock(window_type="regular", heads=3, d_model=96))

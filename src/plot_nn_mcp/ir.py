@@ -335,10 +335,17 @@ class IRBuilder:
         raise TypeError(f"unknown IROp: {type(op).__name__}")
 
     def add_op(self, op: "IROp") -> str:
-        """Lower an op and auto-connect to cursor. Returns the exit node id."""
+        """Lower an op and auto-connect to cursor. Returns the exit node id.
+
+        ``self.cursor`` must be captured BEFORE ``lower()`` runs, because
+        ``add_block`` updates the cursor as a side-effect. Using the
+        post-lowering cursor produced a spurious ``exit -> entry`` data
+        edge (visible as a long backward arrow in LSTM/GRU golden files).
+        """
+        prev_cursor = self.cursor
         entry, exit_ = self.lower(op)
-        if self.cursor is not None:
-            self.connect(self.cursor, entry, kind="data")
+        if prev_cursor is not None:
+            self.connect(prev_cursor, entry, kind="data")
         self.cursor = exit_
         return exit_
 

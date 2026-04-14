@@ -27,6 +27,12 @@ from .flat_renderer import (
 from .ir import IRGraph, IRNode
 from .themes import Theme
 
+# Spacing around SectionHeader rules. Tuned so that the bold title + optional
+# subtitle sit clear of both the preceding block and the next block; the
+# legacy 0.6/0.4 cm pair let wide title labels clip into neighbour frames.
+_SECTION_GAP_BEFORE_CM = 1.0
+_SECTION_GAP_AFTER_CM = 0.4  # applied to next block via node `above` distance
+
 
 def _branch_position(node: IRNode) -> str | None:
     """If node is a sibling in an IRParallelOp, return its horizontal anchor.
@@ -46,7 +52,8 @@ def _branch_position(node: IRNode) -> str | None:
 
 
 def _emit_node(node: IRNode, prev_id: str | None, is_first: bool,
-               direction: str = "vertical") -> str:
+               direction: str = "vertical",
+               prev_shape: str | None = None) -> str:
     """Emit a single IR node as TikZ.
 
     ``prev_id`` is used for relative positioning (``above=... of prev``);
@@ -67,65 +74,91 @@ def _emit_node(node: IRNode, prev_id: str | None, is_first: bool,
                 rf"\node[inner sep=0, minimum size=0, {branch_pos}] ({node.id}) {{}};"
                 "\n"
             )
+        gap = "0.4cm"
+        if prev_shape == "section_rule":
+            gap = f"{_SECTION_GAP_AFTER_CM + 0.4:g}cm"
         if is_first:
             pos = "at (0,0)"
         elif direction == "horizontal":
-            pos = f"right=0.4cm of {prev_id}"
+            pos = f"right={gap} of {prev_id}"
         else:
-            pos = f"above=0.4cm of {prev_id}"
+            pos = f"above={gap} of {prev_id}"
         return (
             rf"\node[inner sep=0, minimum size=0, {pos}] ({node.id}) {{}};"
             "\n"
         )
 
     if node.shape == "section_rule":
-        # Thin horizontal rule + bold title text — used for SectionHeader
-        # and Separator. No data flow through it; positioning is relative
-        # to the previous node so the visual gap is preserved.
-        # If this is the first element (no prev) we anchor at (0,0) — using
-        # ``current bounding box.south`` before any node exists causes a
-        # "Dimension too large" error in TikZ.
+        # Thin rule + bold title text — used for SectionHeader and
+        # Separator. In vertical flow the rule is horizontal and the
+        # title sits above it; in horizontal flow the rule is a vertical
+        # tick and the title sits above it floating over the chain.
+        # If this is the first element (no prev) we anchor at (0,0) to
+        # avoid a "Dimension too large" TikZ error from empty bbox refs.
         rule_id = f"{node.id}_rule"
-        if prev_id is None:
-            out = (
-                rf"\node[inner sep=0, minimum height=0] ({rule_id}) "
-                rf"at (0,0) {{}};" "\n"
+        horizontal = direction == "horizontal"
+        if horizontal:
+            rule_stroke = (
+                rf"\draw[color=clrgroup_frame!50, line width=0.4pt] "
+                rf"([yshift=-1.8cm]{rule_id}.center) -- "
+                rf"([yshift=1.8cm]{rule_id}.center);" "\n"
+            )
+        else:
+            rule_stroke = (
                 rf"\draw[color=clrgroup_frame!50, line width=0.4pt] "
                 rf"([xshift=-2.2cm]{rule_id}.center) -- "
                 rf"([xshift=2.2cm]{rule_id}.center);" "\n"
             )
+        # In horizontal mode the next block positions itself relative to
+        # node.id, so node.id must sit on the flow line (not above the
+        # rule where the title floats). We emit a secondary title label.
+        # Positioning options must live INSIDE the [] — placing
+        # "above=... of ..." outside the bracket is invalid TikZ syntax
+        # and breaks compilation (idea 3 in the fix plan).
+        if prev_id is None:
+            rule_opts = "inner sep=0, minimum height=0"
+            rule_tail = " at (0,0)"
+        elif horizontal:
+            rule_opts = (
+                f"inner sep=0, minimum height=0, "
+                f"right={_SECTION_GAP_BEFORE_CM}cm of {prev_id}"
+            )
+            rule_tail = ""
+        else:
+            rule_opts = (
+                f"inner sep=0, minimum height=0, "
+                f"above={_SECTION_GAP_BEFORE_CM}cm of {prev_id}"
+            )
+            rule_tail = ""
+        out = (
+            rf"\node[{rule_opts}] ({rule_id}){rule_tail} {{}};" "\n"
+        ) + rule_stroke
+        anchor_id = node.id
+        title_id = f"{node.id}_title" if horizontal else node.id
+        if horizontal:
+            # node.id = invisible anchor on the flow line (rule center)
+            out += (
+                rf"\node[right=0pt of {rule_id}, inner sep=0, "
+                rf"minimum size=0] ({anchor_id}) {{}};" "\n"
+            )
+            if node.label:
+                out += (
+                    rf"\node[above=6pt of {rule_id}, "
+                    rf"font=\sffamily\normalsize\bfseries, text=clrborder] "
+                    rf"({title_id}) {{{node.label}}};" "\n"
+                )
+        else:
             if node.label:
                 out += (
                     rf"\node[above=4pt of {rule_id}, "
                     rf"font=\sffamily\normalsize\bfseries, text=clrborder] "
-                    rf"({node.id}) {{{node.label}}};" "\n"
+                    rf"({anchor_id}) {{{node.label}}};" "\n"
                 )
             else:
                 out += (
                     rf"\node[above=4pt of {rule_id}, inner sep=0, "
-                    rf"minimum size=0] ({node.id}) {{}};" "\n"
+                    rf"minimum size=0] ({anchor_id}) {{}};" "\n"
                 )
-            return out
-        ref = prev_id
-        out = (
-            rf"\node[above=0.6cm of {ref}, inner sep=0, minimum height=0] "
-            rf"({rule_id}) {{}};" "\n"
-            rf"\draw[color=clrgroup_frame!50, line width=0.4pt] "
-            rf"([xshift=-2.2cm]{rule_id}.center) -- "
-            rf"([xshift=2.2cm]{rule_id}.center);" "\n"
-        )
-        if node.label:
-            out += (
-                rf"\node[above=4pt of {rule_id}, "
-                rf"font=\sffamily\normalsize\bfseries, text=clrborder] "
-                rf"({node.id}) {{{node.label}}};" "\n"
-            )
-        else:
-            # Empty separator — still need a node anchor with the IR id.
-            out += (
-                rf"\node[above=4pt of {rule_id}, inner sep=0, minimum size=0] "
-                rf"({node.id}) {{}};" "\n"
-            )
         return out
 
     width = node.size_hint[0] if node.size_hint else 3.8
@@ -135,6 +168,7 @@ def _emit_node(node: IRNode, prev_id: str | None, is_first: bool,
     width = round(width, 2)
     height = round(height, 2)
 
+    section_bump = prev_shape == "section_rule"
     branch_pos = _branch_position(node)
     if node.shape == "circle":
         kwargs: dict = {}
@@ -150,6 +184,8 @@ def _emit_node(node: IRNode, prev_id: str | None, is_first: bool,
                 kwargs["right_of"] = prev_id
             else:
                 kwargs["above_of"] = prev_id
+            if section_bump:
+                kwargs["node_distance"] = 0.4 + _SECTION_GAP_AFTER_CM
         symbol = node.label or "+"
         return flat_op_circle(node.id, symbol=symbol, **kwargs)
 
@@ -170,13 +206,17 @@ def _emit_node(node: IRNode, prev_id: str | None, is_first: bool,
         block_kwargs["position"] = "(0,0)"
     elif direction == "horizontal":
         block_kwargs["right_of"] = prev_id
+        if section_bump:
+            block_kwargs["node_distance"] = 0.4 + _SECTION_GAP_AFTER_CM
     else:
         block_kwargs["above_of"] = prev_id
+        if section_bump:
+            block_kwargs["node_distance"] = 0.4 + _SECTION_GAP_AFTER_CM
     return flat_block(node.id, node.label, node.role, **block_kwargs)
 
 
 def _safe_skip_xshift(graph: IRGraph, edge, order_index: dict[str, int],
-                       safety: float = 0.4, default: float = 2.2) -> float:
+                       safety: float = 0.6, default: float = 2.4) -> float:
     """Compute xshift that clears the widest block between src and dst.
 
     Fix for Task 4 (see REFACTOR_HANDOFF.md): the legacy hardcoded 2.2cm
@@ -187,10 +227,11 @@ def _safe_skip_xshift(graph: IRGraph, edge, order_index: dict[str, int],
     """
     src_i = order_index.get(edge.src)
     dst_i = order_index.get(edge.dst)
-    if src_i is None or dst_i is None or dst_i <= src_i:
+    if src_i is None or dst_i is None or dst_i == src_i:
         return default
+    lo, hi = (src_i, dst_i) if src_i < dst_i else (dst_i, src_i)
     widths: list[float] = []
-    for nid in graph.order[src_i + 1:dst_i + 1]:
+    for nid in graph.order[lo + 1:hi + 1]:
         node = graph.nodes[nid]
         if node.size_hint and node.shape == "block":
             widths.append(node.size_hint[0])
@@ -251,19 +292,44 @@ def emit_tikz(graph: IRGraph, theme: Theme,
     parts: list[str] = [flat_head(), flat_colors(theme), flat_begin()]
 
     prev: str | None = None
+    prev_shape: str | None = None
     for i, nid in enumerate(graph.order):
         node = graph.nodes[nid]
         parts.append(_emit_node(node, prev_id=prev, is_first=(i == 0),
-                                 direction=direction))
+                                 direction=direction,
+                                 prev_shape=prev_shape))
         prev = nid
+        prev_shape = node.shape
 
     # Edges. In horizontal mode data arrows use east→west, skip arrows
     # loop north/south instead of east/west.
     order_index = {nid: i for i, nid in enumerate(graph.order)}
     for edge in graph.edges:
+        # Skip self-loops: the IR occasionally produces edges where src == dst
+        # (e.g. when a passthrough op like Dropout reuses the cursor). Drawing
+        # them emits zero-length arrows that render as smudges on the block.
+        if edge.src == edge.dst:
+            continue
+        src_i = order_index.get(edge.src)
+        dst_i = order_index.get(edge.dst)
+        # Idea 4: edges that go BACKWARD in flow order (dst positioned before
+        # src) — e.g. RNN recurrence h_t→entry — must never be drawn as a
+        # straight line: they would stab through every block in between.
+        # Route them as a skip arrow on the LEFT side (opposite of the normal
+        # residual skip which routes right), so they read as a loop.
+        is_backward = (
+            src_i is not None and dst_i is not None and dst_i < src_i
+        )
         if edge.kind == "skip":
             xshift = _safe_skip_xshift(graph, edge, order_index)
             parts.append(flat_skip_arrow(edge.src, edge.dst, xshift=xshift))
+        elif is_backward:
+            # swap src/dst endpoints so the arrow head sits on the incoming
+            # side; route via the left gutter.
+            xshift = _safe_skip_xshift(graph, edge, order_index,
+                                        safety=0.8, default=2.6)
+            parts.append(flat_skip_arrow(edge.src, edge.dst,
+                                           xshift=xshift, direction="left"))
         elif direction == "horizontal":
             parts.append(flat_arrow(edge.src, edge.dst,
                                      from_anchor="east", to_anchor="west"))
@@ -284,43 +350,50 @@ def emit_tikz(graph: IRGraph, theme: Theme,
     io_start_offset = "(-0.5,0)" if direction == "horizontal" else "(0,-0.5)"
     io_end_offset = "(0.5,0)" if direction == "horizontal" else "(0,0.5)"
 
-    if graph.input_node:
-        if _redundant(graph.input_node, "Input"):
-            parts.append(
-                rf"\draw[arrow] ({graph.input_node}.{io_start_anchor}) "
-                rf"++ {io_start_offset} -- "
-                rf"({graph.input_node}.{io_start_anchor});" "\n"
-            )
-        else:
-            parts.append(
-                rf"\draw[arrow] ({graph.input_node}.{io_start_anchor}) "
-                rf"++ {io_start_offset} -- "
-                rf"node[right, yshift=-2pt, font=\sffamily\scriptsize, "
-                rf"text=clrtext] {{Input}} ({graph.input_node}.{io_start_anchor});"
-                "\n"
-            )
-    if graph.output_node:
-        if _redundant(graph.output_node, "Output"):
-            parts.append(
-                rf"\draw[arrow] ({graph.output_node}.{io_end_anchor}) -- "
-                rf"++ {io_end_offset};" "\n"
-            )
-        else:
-            parts.append(
-                rf"\draw[arrow] ({graph.output_node}.{io_end_anchor}) -- "
-                rf"node[right, yshift=-2pt, font=\sffamily\scriptsize, "
-                rf"text=clrtext] {{Output}} ++ {io_end_offset};" "\n"
-            )
+    # IO stubs: short arrow pointing INTO input (from outside) and OUT of
+    # output (to outside). When the endpoint block already contains the word
+    # "Input"/"Output", the label is redundant and we omit the arrow entirely
+    # — this fixes the zero-length self-arrow that rendered as a visual
+    # smudge on the block edge (ideas 1, 2 in the fix plan).
+    # Start offset directions: inputs come from "outside" (below in vertical,
+    # left in horizontal) and point TOWARD the block.
+    if direction == "vertical":
+        in_shift = "yshift=-0.6cm"
+        out_shift = "yshift=0.6cm"
+    else:
+        in_shift = "xshift=-0.6cm"
+        out_shift = "xshift=0.6cm"
+
+    if graph.input_node and not _redundant(graph.input_node, "Input"):
+        parts.append(
+            rf"\draw[arrow] ([{in_shift}]{graph.input_node}.{io_start_anchor}) "
+            rf"-- node[right, yshift=-2pt, font=\sffamily\scriptsize, "
+            rf"text=clrtext] {{Input}} ({graph.input_node}.{io_start_anchor});"
+            "\n"
+        )
+    if graph.output_node and not _redundant(graph.output_node, "Output"):
+        parts.append(
+            rf"\draw[arrow] ({graph.output_node}.{io_end_anchor}) "
+            rf"-- node[right, yshift=-2pt, font=\sffamily\scriptsize, "
+            rf"text=clrtext] {{Output}} "
+            rf"([{out_shift}]{graph.output_node}.{io_end_anchor});" "\n"
+        )
 
     # Group frames (fit boxes around children) with optional ×N badge.
+    # Idea 6+7: increase inner padding so children don't touch the border,
+    # and soften the stroke (densely dashed + lower opacity) so the frame
+    # recedes visually and doesn't compete with arrows. Asymmetric xsep
+    # gives residual skiparrows room to route outside the frame.
     for gid, group in graph.groups.items():
         if not group.children:
             continue
         fit = " ".join(f"({c})" for c in group.children)
         parts.append(
-            rf"\node[draw=clrgroup_frame, rounded corners=6pt, dashed, "
-            rf"line width=0.8pt, fill=clrgroup_fill, fill opacity=0.4, "
-            rf"inner sep=0.35cm, fit={fit}] ({gid}) {{}};" "\n"
+            rf"\node[draw=clrgroup_frame!60, rounded corners=8pt, "
+            rf"densely dashed, line width=0.6pt, "
+            rf"fill=clrgroup_fill, fill opacity=0.35, "
+            rf"inner ysep=0.55cm, inner xsep=0.7cm, fit={fit}] "
+            rf"({gid}) {{}};" "\n"
         )
         if group.title:
             parts.append(
@@ -328,8 +401,16 @@ def emit_tikz(graph: IRGraph, theme: Theme,
                 rf"text=clrborder] ({gid}_title) {{{group.title}}};" "\n"
             )
         if group.repeat_count and group.repeat_count > 1:
+            if direction == "horizontal":
+                badge_pos = (
+                    rf"below=10pt of {gid}.south, anchor=north"
+                )
+            else:
+                badge_pos = (
+                    rf"right=12pt of {gid}.east, anchor=west"
+                )
             parts.append(
-                rf"\node[right=12pt of {gid}.east, anchor=west, "
+                rf"\node[{badge_pos}, "
                 rf"font=\sffamily\Large\bfseries, text=clrborder] "
                 rf"({gid}_badge) {{$\times{group.repeat_count}$}};" "\n"
             )
@@ -342,4 +423,44 @@ def emit_tikz(graph: IRGraph, theme: Theme,
         )
 
     parts.append(flat_end())
-    return "".join(parts)
+    output = "".join(parts)
+    _lint_tikz(output)
+    return output
+
+
+# ---------------------------------------------------------------------------
+# Output linter (idea 10)
+# ---------------------------------------------------------------------------
+
+import re as _re
+
+# Zero-length self-arrow: \draw[...] (X.anchor) -- (X.anchor);
+_RE_SELF_ARROW = _re.compile(
+    r"\\draw\[[^\]]*\]\s*\(([^.)]+)\.(\w+)\)\s*--\s*\(\1\.\2\)"
+)
+# Positioning (above=/below=/left=/right=) written AFTER the closing bracket
+# of a \node — invalid TikZ syntax. Skip "at (x,y)" which IS valid outside [].
+_RE_BAD_POS = _re.compile(
+    r"\\node\[[^\]]*\]\s*\([^)]+\)\s+(above|below|left|right)\s*="
+)
+
+
+def _lint_tikz(tex: str) -> None:
+    """Fail fast on known emission bugs.
+
+    Guards against regressions: zero-length self-arrows and
+    out-of-bracket positioning options. Both were recurring bugs in
+    generated output before the fix campaign.
+    """
+    m = _RE_SELF_ARROW.search(tex)
+    if m:
+        raise AssertionError(
+            f"emit produced zero-length self-arrow for node "
+            f"'{m.group(1)}.{m.group(2)}' — this renders as a visual smudge"
+        )
+    m = _RE_BAD_POS.search(tex)
+    if m:
+        raise AssertionError(
+            f"emit produced '{m.group(1)}=' outside \\node[...] brackets — "
+            f"invalid TikZ positioning syntax"
+        )
